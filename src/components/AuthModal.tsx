@@ -87,8 +87,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       <DialogContent className="sm:max-w-md bg-gradient-to-br from-slate-900/95 via-purple-900/95 to-slate-900/95 backdrop-blur-xl border border-purple-500/20 text-white shadow-2xl">
         <DialogHeader>
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-white/[0.02] border border-white/[0.08] rounded-xl flex items-center justify-center shadow-lg overflow-hidden shrink-0">
+              <img
+                src="/favicon.png"
+                alt="PathGenie Logo"
+                className="w-6 h-6 object-contain"
+              />
             </div>
             <DialogTitle className="text-2xl text-white font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
               PathGenie

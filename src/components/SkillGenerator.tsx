@@ -64,12 +64,36 @@ const SkillGenerator = () => {
       } else {
         throw new Error('Failed to generate roadmap');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating roadmap:', error);
-      if (error.message?.includes('Monthly roadmap generation limit reached')) {
+      let errMsg = 'Failed to generate roadmap. Please try again.';
+      
+      if (error.context && typeof error.context.text === 'function') {
+        try {
+          const textBody = await error.context.text();
+          try {
+            const body = JSON.parse(textBody);
+            if (body?.error) {
+              errMsg = body.error;
+            } else if (body?.message) {
+              errMsg = body.message;
+            }
+          } catch {
+            if (textBody && textBody.length < 250 && !textBody.includes('<html')) {
+              errMsg = textBody;
+            }
+          }
+        } catch (e) {
+          console.error('Could not read error response context:', e);
+        }
+      } else if (error.message) {
+        errMsg = error.message;
+      }
+
+      if (errMsg.includes('Monthly roadmap generation limit reached')) {
         toast.error('Monthly limit reached. Upgrade to Pro for unlimited roadmaps!');
       } else {
-        toast.error('Failed to generate roadmap. Please try again.');
+        toast.error(errMsg);
       }
     } finally {
       setIsLoading(false);

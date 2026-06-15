@@ -96,7 +96,11 @@ const Auth = () => {
           
           <div className="flex items-center justify-center space-x-2.5 mb-3 mt-4">
             <div className="w-8 h-8 bg-white/[0.02] border border-white/[0.08] rounded-lg flex items-center justify-center shadow-md shrink-0">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+              <img
+                src="/favicon.png"
+                alt="PathGenie Logo"
+                className="w-5 h-5 object-contain"
+              />
             </div>
             <span className="text-xl font-bold text-white tracking-tight font-display">PathGenie</span>
           </div>

@@ -45,12 +45,13 @@ async function checkUserSubscription(supabase: any, userId: string, email: strin
   }
 
   if (!subscriber) {
-    // Create free tier entry for new user
+    // Create free tier entry for new user (use unique placeholder if email is empty to avoid UNIQUE constraint violation)
+    const uniqueEmail = email || `user-${userId}@pathgenie.local`;
     await supabase
       .from('subscribers')
       .insert({
         user_id: userId,
-        email: email || '',
+        email: uniqueEmail,
         subscribed: false,
         subscription_tier: 'free'
       });
@@ -227,7 +228,12 @@ async function getYouTubeData(supabase: any, searchQuery: string, skill: string,
     try {
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=3&safeSearch=strict&relevanceLanguage=en&order=relevance&videoDuration=medium&q=${encodeURIComponent(query)}&key=${YOUTUBE_API_KEY}`;
       
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 seconds timeout
+      
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
       if (!res.ok) continue;
       
       const json = await res.json();
@@ -271,7 +277,7 @@ async function generateGeminiRoadmap(supabase: any, prompt: string, userId: stri
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 4000 }
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
     }),
   });
 
@@ -281,13 +287,33 @@ async function generateGeminiRoadmap(supabase: any, prompt: string, userId: stri
   }
 
   const geminiData = await geminiResponse.json();
-  let generatedContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  generatedContent = generatedContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const candidate = geminiData.candidates?.[0];
+  
+  if (candidate?.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
+    throw new Error(`AI generation blocked/failed (Reason: ${candidate.finishReason}). Please try a different skill or goal description.`);
+  }
+
+  let generatedContent = candidate?.content?.parts?.[0]?.text || '';
+  
+  // Clean markdown fences case-insensitively
+  let cleanContent = generatedContent.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
   
   try {
-    return JSON.parse(generatedContent);
+    return JSON.parse(cleanContent);
   } catch (e) {
-    throw new Error('Failed to parse AI response from Gemini');
+    console.log('⚠️ Standard JSON parse failed, trying regex extraction...');
+    // Match first '{' to last '}'
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (innerError) {
+        console.error('💥 Regex JSON extraction failed:', innerError.message);
+      }
+    }
+    
+    console.error('💥 Raw generated content was:', generatedContent);
+    throw new Error(`Failed to parse AI response from Gemini: ${e.message}`);
   }
 }
 
@@ -321,6 +347,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let requestBody: any = null;
+
   try {
     if (!GEMINI_API_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Missing necessary secrets');
@@ -334,7 +362,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) throw new Error('Unauthorized');
 
-    const requestBody = await req.json();
+    requestBody = await req.json();
     const { skill, level, timeCommitment, learningStyle, goal, timeline } = requestBody;
 
     if (!skill || !level || !timeCommitment) {
@@ -373,6 +401,19 @@ serve(async (req) => {
     console.log('🚀 Generating roadmap with Gemini...');
     const roadmapData = await generateGeminiRoadmap(supabase, prompt, user.id, subscription.tier);
     
+    // Validate and normalize roadmap structure returned by AI
+    if (roadmapData && !roadmapData.weeks && roadmapData.Weeks) {
+      roadmapData.weeks = roadmapData.Weeks;
+    }
+    if (roadmapData && !roadmapData.weeks && roadmapData.roadmap?.weeks) {
+      roadmapData.weeks = roadmapData.roadmap.weeks;
+    }
+    
+    if (!roadmapData || !Array.isArray(roadmapData.weeks) || roadmapData.weeks.length === 0) {
+      console.error('💥 Invalid roadmap data structure returned by Gemini:', roadmapData);
+      throw new Error("Failed to compile learning roadmap: The AI response did not contain a valid weekly outline. Please try again.");
+    }
+
     // Cache the generated roadmap
     await cacheRoadmap(supabase, skill, level, timeCommitment, roadmapData);
 
@@ -384,14 +425,16 @@ serve(async (req) => {
       const searchPromises = [];
       const tasksToUpdate = [];
 
+      let searchCount = 0;
       for (const week of roadmapData.weeks) {
         if (week.tasks && Array.isArray(week.tasks)) {
           for (const task of week.tasks) {
-            if (task.title) {
+            if (task.title && searchCount < 3) { // Limit to first 3 tasks to avoid gateway timeout
               tasksToUpdate.push(task);
               searchPromises.push(
                 getYouTubeData(supabase, task.title, skill, user.id, subscription.tier)
               );
+              searchCount++;
             }
           }
         }
@@ -429,6 +472,28 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('💥 Error in generate-roadmap function:', error);
+    
+    try {
+      const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      await db
+        .from('roadmap_cache')
+        .upsert({
+          skill_name: 'debug',
+          level: 'error',
+          time_commitment: 'log',
+          cache_key: 'debug_error_log',
+          cached_data: {
+            error: error.message || 'Unknown error',
+            stack: error.stack,
+            timestamp: new Date().toISOString(),
+            requestBody: requestBody
+          }
+        }, { onConflict: 'cache_key' });
+      console.log('✅ Diagnostic error logged to cache table');
+    } catch (dbErr) {
+      console.error('💥 Failed to log error to database cache:', dbErr.message);
+    }
+
     return new Response(JSON.stringify({
       error: error.message || 'Failed to generate roadmap',
       details: error.stack

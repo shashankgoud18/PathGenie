@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Bookmark, Clock, Star, Github, BookOpen, Play, Code, Headphones, BarChart3, Award, TrendingUp, CheckCircle } from 'lucide-react';
+import { ExternalLink, Bookmark, Clock, Star, Github, BookOpen, Play, Code, Headphones, BarChart3, Award, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { LearningResource, UserResourceProgress } from '@/hooks/useResourceDiscovery';
 
 interface ResourceCardProps {
@@ -12,30 +12,30 @@ interface ResourceCardProps {
 }
 
 const getResourceTypeIcon = (type: string) => {
-  switch (type) {
-    case 'reading': return <BookOpen className="w-4 h-4" />;
-    case 'video': return <Play className="w-4 h-4" />;
-    case 'interactive': return <Code className="w-4 h-4" />;
-    case 'audio': return <Headphones className="w-4 h-4" />;
-    case 'visual': return <BarChart3 className="w-4 h-4" />;
-    default: return <BookOpen className="w-4 h-4" />;
+  switch (type?.toLowerCase()) {
+    case 'reading': return <BookOpen className="w-3.5 h-3.5" />;
+    case 'video': return <Play className="w-3.5 h-3.5" />;
+    case 'interactive': return <Code className="w-3.5 h-3.5" />;
+    case 'audio': return <Headphones className="w-3.5 h-3.5" />;
+    case 'visual': return <BarChart3 className="w-3.5 h-3.5" />;
+    default: return <BookOpen className="w-3.5 h-3.5" />;
   }
 };
 
 const getResourceTypeColor = (type: string) => {
-  switch (type) {
-    case 'reading': return 'bg-blue-900/20 border-blue-500/30 text-blue-300';
-    case 'video': return 'bg-red-900/20 border-red-500/30 text-red-300';
-    case 'interactive': return 'bg-green-900/20 border-green-500/30 text-green-300';
-    case 'audio': return 'bg-purple-900/20 border-purple-500/30 text-purple-300';
-    case 'visual': return 'bg-orange-900/20 border-orange-500/30 text-orange-300';
-    default: return 'bg-gray-900/20 border-gray-500/30 text-gray-300';
+  switch (type?.toLowerCase()) {
+    case 'reading': return 'bg-blue-500/5 border-blue-500/10 text-blue-400';
+    case 'video': return 'bg-rose-500/5 border-rose-500/10 text-rose-400';
+    case 'interactive': return 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400';
+    case 'audio': return 'bg-purple-500/5 border-purple-500/10 text-purple-400';
+    case 'visual': return 'bg-amber-500/5 border-amber-500/10 text-amber-400';
+    default: return 'bg-white/5 border-white/[0.06] text-slate-300';
   }
 };
 
 const getSourceIcon = (source: string) => {
-  if (source.toLowerCase().includes('github')) return <Github className="w-4 h-4" />;
-  if (source.toLowerCase().includes('youtube')) return <Play className="w-4 h-4" />;
+  if (source?.toLowerCase().includes('github')) return <Github className="w-3.5 h-3.5 shrink-0" />;
+  if (source?.toLowerCase().includes('youtube')) return <Play className="w-3.5 h-3.5 shrink-0" />;
   return null;
 };
 
@@ -43,8 +43,8 @@ const getQualityStars = (score: number) => {
   return Array.from({ length: 5 }, (_, i) => (
     <Star
       key={i}
-      className={`w-3 h-3 ${
-        i < score ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
+      className={`w-2.5 h-2.5 ${
+        i < score ? 'text-yellow-500 fill-yellow-500' : 'text-slate-600'
       }`}
     />
   ));
@@ -52,20 +52,10 @@ const getQualityStars = (score: number) => {
 
 const getStatusColor = (status?: string) => {
   switch (status) {
-    case 'completed': return 'bg-green-900/30 text-green-300 border-green-500/30';
-    case 'in_progress': return 'bg-blue-900/30 text-blue-300 border-blue-500/30';
-    case 'bookmarked': return 'bg-yellow-900/30 text-yellow-300 border-yellow-500/30';
-    case 'skipped': return 'bg-gray-900/30 text-gray-300 border-gray-500/30';
-    default: return 'bg-purple-900/30 text-purple-300 border-purple-500/30';
-  }
-};
-
-const getDifficultyColor = (level?: string) => {
-  switch (level) {
-    case 'beginner': return 'bg-green-900/30 text-green-300';
-    case 'intermediate': return 'bg-yellow-900/30 text-yellow-300';
-    case 'advanced': return 'bg-red-900/30 text-red-300';
-    default: return 'bg-gray-900/30 text-gray-300';
+    case 'completed': return 'bg-emerald-500/5 text-emerald-400 border-emerald-500/15';
+    case 'in_progress': return 'bg-blue-500/5 text-blue-400 border-blue-500/15';
+    case 'bookmarked': return 'bg-amber-500/5 text-amber-400 border-amber-500/15';
+    default: return 'bg-purple-500/5 text-purple-400 border-purple-500/15';
   }
 };
 
@@ -81,169 +71,165 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
 
   const typeColor = getResourceTypeColor(resource.resource_type);
   const isCompleted = userProgress?.status === 'completed';
-  const isBookmarked = userProgress?.status === 'bookmarked';  if (compact) {
-    return (      <div className="group flex items-center justify-between p-3 sm:p-4 bg-slate-800/60 backdrop-blur-xl border border-slate-600/40 rounded-lg shadow-lg transition-transform duration-300 hover:-translate-y-1">          <div className="relative flex items-center gap-2 sm:gap-3 flex-1">
-          <div className={`p-1.5 sm:p-2 rounded-md border ${typeColor}`}>
+  const isBookmarked = userProgress?.status === 'bookmarked';
+
+  if (compact) {
+    return (
+      <div className="group flex items-center justify-between p-3 bg-[#050508]/40 border border-white/[0.04] hover:border-white/[0.08] hover:bg-[#09090D]/50 rounded-lg shadow-md transition-all select-none">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className={`p-1.5 rounded-md border shrink-0 ${typeColor}`}>
             {getResourceTypeIcon(resource.resource_type)}
           </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-white truncate text-sm sm:text-base">{resource.title}</h4>
-            <div className="flex items-center gap-2 sm:gap-3 mt-1">
-              <div className="flex items-center gap-1">
+          <div className="flex-1 min-w-0 text-left">
+            <h4 className="font-bold text-white text-xs truncate font-display">{resource.title}</h4>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <div className="flex items-center">
                 {getQualityStars(resource.quality_score)}
               </div>
-              <div className="flex items-center gap-1 text-gray-400">
+              <div className="flex items-center gap-1 text-slate-500 font-mono text-[9px]">
                 <Clock className="w-3 h-3" />
-                <span className="text-xs">{resource.estimated_time_minutes}min</span>
+                <span>{resource.estimated_time_minutes}m</span>
               </div>
               {resource.is_official && (
-                <Badge variant="secondary" className="text-xs bg-slate-700/50 text-slate-300 border-slate-600/50">
-                  <Award className="w-3 h-3 mr-1" />
+                <span className="bg-emerald-500/5 text-emerald-400 border border-emerald-500/20 text-[8px] font-mono tracking-wider uppercase px-1.5 rounded flex items-center">
                   Official
-                </Badge>
+                </span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        
+        <div className="flex items-center gap-1.5 shrink-0">
           <Button
             size="sm"
             variant="ghost"
             onClick={() => handleStatusChange(isBookmarked ? 'planned' : 'bookmarked')}
-            className={`p-2 ${isBookmarked ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-400 hover:text-yellow-400'}`}
+            className={`p-1.5 hover:bg-white/5 h-8 w-8 rounded-md ${isBookmarked ? 'text-amber-400' : 'text-slate-500 hover:text-amber-400'}`}
           >
-            <Bookmark className="w-4 h-4" />
+            <Bookmark className="w-3.5 h-3.5" />
           </Button>
           <Button
             size="sm"
             variant="ghost"
             asChild
-            className="p-2 text-gray-400 hover:text-gray-300"
+            className="p-1.5 hover:bg-white/5 h-8 w-8 text-slate-500 hover:text-white rounded-md"
           >
             <a href={resource.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </Button>
         </div>
       </div>
     );
-  }  return (
-    <div className={`group relative p-4 sm:p-5 border rounded-lg transition-transform duration-300 hover:-translate-y-1 backdrop-blur-xl shadow-lg ${
-      isCompleted ? 'bg-green-500/10 border-green-400/30' : 'bg-slate-800/60 border-slate-600/40'
+  }
+
+  return (
+    <div className={`group relative p-4.5 border rounded-xl transition-all duration-300 hover:bg-[#09090D]/40 text-left select-none ${
+      isCompleted 
+        ? 'bg-emerald-500/[0.01] border-emerald-500/15' 
+        : 'bg-[#050508]/40 border-white/[0.04] hover:border-white/[0.08]'
     }`}>
-      {/* Header */}
-      <div className="relative flex items-start justify-between mb-4">        <div className="flex items-start gap-2 sm:gap-3 flex-1">
-          <div className={`p-1.5 sm:p-2 rounded-md border ${typeColor}`}>
+      {/* Header Info */}
+      <div className="relative flex items-start justify-between gap-4 mb-3.5">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className={`p-2 rounded-md border shrink-0 ${typeColor}`}>
             {getResourceTypeIcon(resource.resource_type)}
           </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">{resource.title}</h4>
-            <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-white mb-1.5 text-sm sm:text-base tracking-tight font-display">
+              {resource.title}
+            </h4>
+            <div className="flex flex-wrap items-center gap-2">
               {getSourceIcon(resource.source)}
-              <span className="text-xs sm:text-sm text-gray-400">{resource.source}</span>
+              <span className="text-[10px] font-mono text-slate-500">{resource.source}</span>
               {resource.is_official && (
-                <Badge variant="secondary" className="text-xs bg-slate-700/50 text-slate-300 border-slate-600/50">
-                  <Award className="w-3 h-3 mr-1" />
+                <Badge className="bg-emerald-500/5 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded">
                   Official
                 </Badge>
               )}
             </div>
-            {resource.description && (
-              <p className="text-sm text-gray-300 leading-relaxed mb-3">
-                {resource.description}
-              </p>
-            )}
           </div>
         </div>
         {userProgress?.status && (
-          <Badge className={`text-xs ${getStatusColor(userProgress.status)}`}>
-            {userProgress.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
+          <Badge className={`text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${getStatusColor(userProgress.status)}`}>
+            {isCompleted && <CheckCircle2 className="w-3 h-3 mr-1" />}
             {userProgress.status.replace('_', ' ')}
           </Badge>
         )}
       </div>
 
-      {/* Metadata */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
+      {/* Description text */}
+      {resource.description && (
+        <p className="text-slate-400 text-xs leading-relaxed font-sans font-medium mb-4 pl-0.5">
+          {resource.description}
+        </p>
+      )}
+
+      {/* Bottom Actions Row */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.03] pt-4 mt-2">
+        <div className="flex items-center gap-3.5 text-[10px] font-mono text-slate-500">
+          <div className="flex items-center gap-1 select-none">
             {getQualityStars(resource.quality_score)}
-            <span className="text-xs text-gray-400 ml-1">{resource.quality_score}/5</span>
           </div>
-          <div className="flex items-center gap-1 text-gray-400">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm">{resource.estimated_time_minutes} min</span>
+          <div className="flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{resource.estimated_time_minutes}m</span>
           </div>
           {resource.difficulty_level && (
-            <Badge className={`text-xs ${getDifficultyColor(resource.difficulty_level)}`}>
-              <TrendingUp className="w-3 h-3 mr-1" />
-              {resource.difficulty_level}
-            </Badge>
+            <span className="uppercase tracking-wider">
+              • {resource.difficulty_level}
+            </span>
           )}
         </div>
 
-        {/* Action buttons */}
+        {/* Control Button Grid */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             onClick={() => handleStatusChange(isBookmarked ? 'planned' : 'bookmarked')}
-            className={`text-sm ${
+            className={`text-[10px] font-mono px-3.5 py-1.5 h-8 rounded-lg border transition-all ${
               isBookmarked 
-                ? 'text-yellow-300 border-yellow-500/30 bg-yellow-900/20 hover:bg-yellow-900/30' 
-                : 'bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-700 hover:text-white'
+                ? 'bg-amber-500/5 text-amber-400 border-amber-500/15' 
+                : 'bg-white/[0.01] text-slate-400 border-white/[0.06] hover:text-white hover:bg-white/5'
             }`}
           >
-            <Bookmark className="w-4 h-4 mr-1" />
+            <Bookmark className="w-3.5 h-3.5 mr-1" />
             {isBookmarked ? 'Saved' : 'Save'}
           </Button>
+          
           <Button
             size="sm"
             onClick={() => handleStatusChange(isCompleted ? 'planned' : 'completed')}
-            className={`text-sm ${
+            className={`text-[10px] font-mono px-3.5 py-1.5 h-8 rounded-lg font-bold transition-all ${
               isCompleted
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-black'
+                : 'bg-white/5 hover:bg-white text-slate-300 hover:text-black border border-white/[0.08]'
             }`}
           >
             {isCompleted ? (
               <>
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Completed
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1 shrink-0" />
+                Done
               </>
             ) : (
               'Mark Done'
             )}
           </Button>
+
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             asChild
-            className="text-sm bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-700 hover:text-white"
+            className="text-[10px] font-mono px-3 py-1.5 h-8 bg-white/[0.01] hover:bg-white/5 text-slate-400 hover:text-white border border-white/[0.06] rounded-lg"
           >
             <a href={resource.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4 mr-1" />
-              Open
+              <ExternalLink className="w-3.5 h-3.5 mr-1" />
+              Launch
             </a>
           </Button>
         </div>
       </div>
-
-      {/* Tags */}
-      {resource.tags && resource.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {resource.tags.slice(0, 5).map((tag, index) => (
-            <Badge key={index} variant="outline" className="text-xs text-gray-300 bg-slate-700/30 border-slate-600/50">
-              #{tag}
-            </Badge>
-          ))}
-          {resource.tags.length > 5 && (
-            <Badge variant="outline" className="text-xs text-gray-300 bg-slate-700/30 border-slate-600/50">
-              +{resource.tags.length - 5} more
-            </Badge>
-          )}
-        </div>
-      )}
     </div>
   );
 };

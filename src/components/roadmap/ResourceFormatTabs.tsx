@@ -60,8 +60,8 @@ const ResourceFormatTabs: React.FC<ResourceFormatTabsProps> = ({
 
   const filteredResources = getFilteredResources();
 
-  // Sort resources by quality score and official status
-  const sortedResources = filteredResources.sort((a, b) => {
+  // Sort resources by quality score and official status safely on a copied array
+  const sortedResources = [...filteredResources].sort((a, b) => {
     if (a.is_official && !b.is_official) return -1;
     if (!a.is_official && b.is_official) return 1;
     return b.quality_score - a.quality_score;
