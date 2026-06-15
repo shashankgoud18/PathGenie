@@ -28,9 +28,9 @@ async function searchYouTubeResources(query: string): Promise<ResourceSearchResu
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&order=relevance&maxResults=2&key=${YOUTUBE_API_KEY}`
     );
-    
+
     const data = await response.json();
-    
+
     return data.items?.map((item: any) => ({
       title: item.snippet.title,
       url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
@@ -57,7 +57,7 @@ async function generateResourcesWithGemini(taskTitle: string, skillName: string,
 
   try {
     console.log('🤖 Calling Gemini API for focused resource generation...');
-    
+
     const prompt = `Generate exactly 3-4 high-quality, diverse learning resources for: "${taskTitle}" in the context of ${skillName}.
 
 CRITICAL: Provide ONLY real, working URLs. Focus on quality over quantity.
@@ -101,7 +101,7 @@ Return ONLY valid JSON array with 3-4 resources:
   }
 ]`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -120,7 +120,7 @@ Return ONLY valid JSON array with 3-4 resources:
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!text) {
       console.log('❌ No text response from Gemini');
       return [];
@@ -138,7 +138,7 @@ Return ONLY valid JSON array with 3-4 resources:
     try {
       const resources = JSON.parse(jsonMatch[0]);
       console.log(`✅ Gemini generated ${resources.length} resources`);
-      
+
       return resources.map((resource: any) => ({
         title: resource.title || 'Untitled Resource',
         url: resource.url || '#',
@@ -248,9 +248,9 @@ serve(async (req) => {
     console.log(`✅ Successfully inserted ${data?.length || 0} focused resources for roadmap ${roadmapId}`)
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         message: `Generated ${allResources.length} focused resources`,
-        resources: data 
+        resources: data
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
