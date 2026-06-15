@@ -417,44 +417,9 @@ serve(async (req) => {
     // Cache the generated roadmap
     await cacheRoadmap(supabase, skill, level, timeCommitment, roadmapData);
 
-    // Enhanced YouTube integration with caching
-    console.log('🎥 Starting YouTube video search with caching...');
-    let videoCount = 0;
-    
-    if (YOUTUBE_API_KEY) {
-      const searchPromises = [];
-      const tasksToUpdate = [];
-
-      let searchCount = 0;
-      for (const week of roadmapData.weeks) {
-        if (week.tasks && Array.isArray(week.tasks)) {
-          for (const task of week.tasks) {
-            if (task.title && searchCount < 3) { // Limit to first 3 tasks to avoid gateway timeout
-              tasksToUpdate.push(task);
-              searchPromises.push(
-                getYouTubeData(supabase, task.title, skill, user.id, subscription.tier)
-              );
-              searchCount++;
-            }
-          }
-        }
-      }
-
-      console.log(`🎥 Dispatching ${searchPromises.length} parallel YouTube resource queries...`);
-      const results = await Promise.all(searchPromises);
-
-      for (let i = 0; i < results.length; i++) {
-        const ytResult = results[i];
-        const task = tasksToUpdate[i];
-        if (ytResult && task) {
-          task.youtubeLink = ytResult.youtubeLink;
-          task.youtubeThumbnail = ytResult.youtubeThumbnail;
-          task.youtubeTitle = ytResult.youtubeTitle;
-          videoCount++;
-        }
-      }
-      console.log(`🎯 YouTube searches complete. Linked ${videoCount} videos in parallel.`);
-    }
+    // Skip synchronous YouTube search during initial generation for instantaneous response (~3-5s).
+    // YouTube videos and documentation will be fetched on-demand when the user views the task.
+    console.log('🎥 Skipping synchronous YouTube search during initial generation for speed.');
 
     const roadmap = await saveRoadmapToDB(supabase, user.id, {
       skill, level, timeCommitment, learningStyle, goal, timeline: timelineWeeks,
