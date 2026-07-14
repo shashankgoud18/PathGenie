@@ -5,15 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, Clock, Target, TrendingUp, Eye, EyeOff, Sparkles, ChevronRight, Compass } from 'lucide-react';
 import { toast } from 'sonner';
-import SEO from '@/components/SEO';
-import RoadmapDisplay from '@/components/RoadmapDisplay';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import ShareRoadmapButton from '@/components/ShareRoadmapButton';
+import SEO from '@/components/layout/SEO';
+import RoadmapDisplay from '@/components/roadmap/RoadmapDisplay';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import ShareRoadmapButton from '@/components/roadmap/ShareRoadmapButton';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Badge } from '@/components/ui/badge';
-import AnimatedBackground from '@/components/AnimatedBackground';
-import CursorGlow from '@/components/CursorGlow';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
+import CursorGlow from '@/components/layout/CursorGlow';
 
 const RoadmapView = () => {
   const { id } = useParams();

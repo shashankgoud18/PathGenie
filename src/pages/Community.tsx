@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Users, Target, Clock, TrendingUp, Star, Search, ArrowLeft, Crown, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import RoadmapCard from '@/components/RoadmapCard';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import RoadmapCard from '@/components/roadmap/RoadmapCard';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 import { Input } from '@/components/ui/input';
-import AnimatedBackground from '@/components/AnimatedBackground';
-import CursorGlow from '@/components/CursorGlow';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
+import CursorGlow from '@/components/layout/CursorGlow';
 
 const Community = () => {
   const { user } = useAuth();

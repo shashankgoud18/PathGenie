@@ -59,11 +59,10 @@ const SubscriptionCard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className={`relative transition-all duration-300 border bg-[#0B0B0F]/60 backdrop-blur-xl ${
-          !isProUser 
-            ? 'border-purple-500/20 shadow-xl' 
+        <Card className={`relative transition-all duration-300 border bg-[#0B0B0F]/60 backdrop-blur-xl ${!isProUser
+            ? 'border-purple-500/20 shadow-xl'
             : 'border-white/[0.04]'
-        } rounded-xl`}>
+          } rounded-xl`}>
           <CardHeader className="pb-6 pt-8 px-6 text-left">
             {!isProUser && (
               <div className="absolute top-[-10px] right-[20px]">
@@ -84,7 +83,7 @@ const SubscriptionCard = () => {
               Perfect for getting started with AI learning paths.
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="px-6 pb-6">
             <ul className="space-y-3 pt-2">
               {freeFeatures.map((feature, index) => (
@@ -94,11 +93,11 @@ const SubscriptionCard = () => {
                 </li>
               ))}
             </ul>
-            
+
             {!isProUser && (
-              <Button 
-                disabled 
-                variant="ghost" 
+              <Button
+                disabled
+                variant="ghost"
                 className="w-full border border-white/[0.08] text-slate-500 cursor-default rounded-lg mt-6 py-2 text-xs font-semibold"
               >
                 Current Plan
@@ -114,22 +113,20 @@ const SubscriptionCard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className={`relative transition-all duration-300 border bg-[#0B0B0F]/70 backdrop-blur-xl ${
-          isProUser 
-            ? 'border-purple-500/20 shadow-xl' 
+        <Card className={`relative transition-all duration-300 border bg-[#0B0B0F]/70 backdrop-blur-xl ${isProUser
+            ? 'border-purple-500/20 shadow-xl'
             : 'border-white/[0.04] shadow-lg hover:border-purple-500/10'
-        } rounded-xl`}>
+          } rounded-xl`}>
           <CardHeader className="pb-6 pt-8 px-6 text-left">
             <div className="absolute top-[-10px] right-[20px]">
-              <span className={`text-[9px] font-mono tracking-wider uppercase px-2 py-0.5 rounded border ${
-                isProUser 
-                  ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/20' 
+              <span className={`text-[9px] font-mono tracking-wider uppercase px-2 py-0.5 rounded border ${isProUser
+                  ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/20'
                   : 'bg-purple-500/5 text-purple-400 border-purple-500/20'
-              }`}>
+                }`}>
                 {isProUser ? 'Active' : 'Recommended'}
               </span>
             </div>
-            
+
             <div className="w-9 h-9 rounded-lg bg-purple-500/5 border border-purple-500/20 flex items-center justify-center mb-4 shrink-0">
               <Crown className="w-4.5 h-4.5 text-amber-400" />
             </div>
@@ -142,7 +139,7 @@ const SubscriptionCard = () => {
               Unlimited access to all premium features.
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="px-6 pb-6">
             <ul className="space-y-3 pt-2">
               {proFeatures.map((feature, index) => (
@@ -152,7 +149,7 @@ const SubscriptionCard = () => {
                 </li>
               ))}
             </ul>
-            
+
             {/* Pro Benefits Highlights */}
             <div className="bg-[#050505]/40 rounded-lg p-3.5 border border-white/[0.04] mt-6">
               <div className="flex items-center gap-1.5 mb-2">
@@ -164,8 +161,8 @@ const SubscriptionCard = () => {
                 <li>Toggle advanced learning styles</li>
                 <li>Export curricula to external targets</li>
               </ul>
-            </div>          
-            
+            </div>
+
             {isProUser ? (
               <div className="space-y-4 pt-2">
                 {subscription.subscription_end && (

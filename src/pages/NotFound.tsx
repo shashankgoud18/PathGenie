@@ -2,8 +2,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import AnimatedBackground from "@/components/AnimatedBackground";
-import CursorGlow from "@/components/CursorGlow";
+import AnimatedBackground from "@/components/layout/AnimatedBackground";
+import CursorGlow from "@/components/layout/CursorGlow";
 
 const NotFound = () => {
   const location = useLocation();

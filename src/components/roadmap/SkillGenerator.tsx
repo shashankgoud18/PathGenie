@@ -6,7 +6,7 @@ import { Sparkles, User, Clock, Target, BookOpen, Zap, Crown } from 'lucide-reac
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSubscription } from '@/hooks/useSubscription';
-import SubscriptionButton from './SubscriptionButton';
+import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 
 const SkillGenerator = () => {
   const [skill, setSkill] = useState('');

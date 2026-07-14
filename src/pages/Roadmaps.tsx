@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, Zap, Target, Clock, TrendingUp, Search, List, LayoutGrid, Trash2, Play, Plus, Calendar, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import SEO from '@/components/SEO';
-import RoadmapCard from '@/components/RoadmapCard';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import SEO from '@/components/layout/SEO';
+import RoadmapCard from '@/components/roadmap/RoadmapCard';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 import RoadmapCardSkeleton from '@/components/ui/RoadmapCardSkeleton';
 import { Input } from '@/components/ui/input';
-import AnimatedBackground from '@/components/AnimatedBackground';
-import CursorGlow from '@/components/CursorGlow';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
+import CursorGlow from '@/components/layout/CursorGlow';
 
 const Roadmaps = () => {
   const { user } = useAuth();

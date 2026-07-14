@@ -6,7 +6,7 @@ import { Check, Star, Crown, Users, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { RazorpayService } from '@/services/razorpay';
 import { toast } from 'sonner';
-import AuthModal from './AuthModal';
+import AuthModal from '@/components/auth/AuthModal';
 
 interface PricingProps {
   onAuthClick?: () => void;

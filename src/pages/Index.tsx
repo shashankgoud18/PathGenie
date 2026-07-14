@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import SEO from '@/components/SEO';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import AnimatedBackground from '@/components/AnimatedBackground';
-import CursorGlow from '@/components/CursorGlow';
+import SEO from '@/components/layout/SEO';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
+import CursorGlow from '@/components/layout/CursorGlow';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, 

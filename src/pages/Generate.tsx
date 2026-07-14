@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import SkillGenerator from '@/components/SkillGenerator';
-import AnimatedBackground from '@/components/AnimatedBackground';
-import CursorGlow from '@/components/CursorGlow';
-import SEO from '@/components/SEO';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import SkillGenerator from '@/components/roadmap/SkillGenerator';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
+import CursorGlow from '@/components/layout/CursorGlow';
+import SEO from '@/components/layout/SEO';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

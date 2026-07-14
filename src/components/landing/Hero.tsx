@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Star, Users, TrendingUp, Target, Sparkles, Zap, BookOpen, Clock, Trophy, Rocket, Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import Navbar from './Navbar';
-import AuthModal from './AuthModal';
+import Navbar from '@/components/layout/Navbar';
+import AuthModal from '@/components/auth/AuthModal';
 
 const Hero = () => {
   const [scrollY, setScrollY] = useState(0);

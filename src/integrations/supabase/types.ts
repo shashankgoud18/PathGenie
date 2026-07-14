@@ -185,6 +185,7 @@ export type Database = {
           timeline: string | null
           updated_at: string
           user_id: string
+          completed_tasks: string[] | null
         }
         Insert: {
           created_at?: string
@@ -200,6 +201,7 @@ export type Database = {
           timeline?: string | null
           updated_at?: string
           user_id: string
+          completed_tasks?: string[] | null
         }
         Update: {
           created_at?: string
@@ -215,6 +217,7 @@ export type Database = {
           timeline?: string | null
           updated_at?: string
           user_id?: string
+          completed_tasks?: string[] | null
         }
         Relationships: []
       }

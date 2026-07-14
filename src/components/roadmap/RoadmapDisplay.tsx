@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, Clock, Download, Share, Bell, ChevronRight, Award, Compass, Zap, CheckCircle2, Star, Target, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { Confetti } from './ui/Confetti';
-import RoadmapWeek from './roadmap/RoadmapWeek';
+import { Confetti } from '@/components/ui/Confetti';
+import RoadmapWeek from './RoadmapWeek';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface RoadmapDisplayProps {
@@ -21,21 +22,55 @@ const RoadmapDisplay: React.FC<RoadmapDisplayProps> = ({ roadmapData, roadmapId,
   const [reminderFreq, setReminderFreq] = useState('daily');
   const [reminderChannel, setReminderChannel] = useState('email');
 
-  // Load completed tasks from localStorage
+  // Load completed tasks from Supabase / localStorage fallback
   useEffect(() => {
-    if (roadmapId) {
-      const savedProgress = localStorage.getItem(`pathgenie-roadmap-progress-${roadmapId}`);
-      if (savedProgress) {
-        try {
-          const parsed = JSON.parse(savedProgress);
-          if (Array.isArray(parsed)) {
-            setCompletedTasks(new Set(parsed));
+    const fetchProgress = async () => {
+      if (!roadmapId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('roadmaps')
+          .select('completed_tasks')
+          .eq('id', roadmapId)
+          .single();
+
+        if (error) throw error;
+
+        if (data?.completed_tasks) {
+          setCompletedTasks(new Set(data.completed_tasks));
+        } else {
+          // Fallback to localStorage if database has no progress yet
+          const savedProgress = localStorage.getItem(`pathgenie-roadmap-progress-${roadmapId}`);
+          if (savedProgress) {
+            const parsed = JSON.parse(savedProgress);
+            if (Array.isArray(parsed)) {
+              setCompletedTasks(new Set(parsed));
+              // Sync local progress to DB
+              await supabase
+                .from('roadmaps')
+                .update({ completed_tasks: parsed })
+                .eq('id', roadmapId);
+            }
           }
-        } catch (e) {
-          console.error('Failed to parse saved progress', e);
+        }
+      } catch (e) {
+        console.error('Failed to load roadmap progress from DB:', e);
+        // Fallback to localStorage
+        const savedProgress = localStorage.getItem(`pathgenie-roadmap-progress-${roadmapId}`);
+        if (savedProgress) {
+          try {
+            const parsed = JSON.parse(savedProgress);
+            if (Array.isArray(parsed)) {
+              setCompletedTasks(new Set(parsed));
+            }
+          } catch (err) {
+            console.error('Failed to parse saved progress', err);
+          }
         }
       }
-    }
+    };
+
+    fetchProgress();
   }, [roadmapId]);
 
   // Early return if no roadmap data is provided
@@ -64,7 +99,7 @@ const RoadmapDisplay: React.FC<RoadmapDisplayProps> = ({ roadmapData, roadmapId,
     );
   }
 
-  const toggleTask = (taskId: string) => {
+  const toggleTask = async (taskId: string) => {
     const newCompleted = new Set(completedTasks);
     let isChecking = false;
 
@@ -76,9 +111,22 @@ const RoadmapDisplay: React.FC<RoadmapDisplayProps> = ({ roadmapData, roadmapId,
     }
     
     setCompletedTasks(newCompleted);
+    const completedArray = Array.from(newCompleted);
     
     if (roadmapId) {
-      localStorage.setItem(`pathgenie-roadmap-progress-${roadmapId}`, JSON.stringify(Array.from(newCompleted)));
+      localStorage.setItem(`pathgenie-roadmap-progress-${roadmapId}`, JSON.stringify(completedArray));
+      
+      // Update in Supabase
+      try {
+        const { error } = await supabase
+          .from('roadmaps')
+          .update({ completed_tasks: completedArray })
+          .eq('id', roadmapId);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to save progress to database:', err);
+        toast.error('Progress saved locally, but failed to sync to cloud.');
+      }
     }
 
     // Interactive week complete celebration check
@@ -298,15 +346,27 @@ ${week.checkpoint || 'N/A'}
             isOpen={true}
             onToggleWeek={() => {}}
             roadmapId={roadmapId}
-            onCheckpointComplete={() => {
+            onCheckpointComplete={async () => {
               // Mark all tasks in active week completed
               const newCompleted = new Set(completedTasks);
               activeWeekData.tasks?.forEach((task: any) => {
                 newCompleted.add(task.id);
               });
               setCompletedTasks(newCompleted);
+              const completedArray = Array.from(newCompleted);
+              
               if (roadmapId) {
-                localStorage.setItem(`pathgenie-roadmap-progress-${roadmapId}`, JSON.stringify(Array.from(newCompleted)));
+                localStorage.setItem(`pathgenie-roadmap-progress-${roadmapId}`, JSON.stringify(completedArray));
+                
+                try {
+                  const { error } = await supabase
+                    .from('roadmaps')
+                    .update({ completed_tasks: completedArray })
+                    .eq('id', roadmapId);
+                  if (error) throw error;
+                } catch (err) {
+                  console.error('Failed to save progress to database on checkpoint complete:', err);
+                }
               }
 
               // Trigger confetti celebration!

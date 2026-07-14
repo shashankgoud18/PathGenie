@@ -13,11 +13,11 @@ import {
   ExternalLink,
   Check
 } from 'lucide-react';
-import SEO from '@/components/SEO';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import AnimatedBackground from '@/components/AnimatedBackground';
-import CursorGlow from '@/components/CursorGlow';
+import SEO from '@/components/layout/SEO';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import AnimatedBackground from '@/components/layout/AnimatedBackground';
+import CursorGlow from '@/components/layout/CursorGlow';
 
 const Help = () => {
   const navigate = useNavigate();
