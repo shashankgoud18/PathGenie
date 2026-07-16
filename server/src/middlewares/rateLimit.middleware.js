@@ -75,7 +75,9 @@ export const checkRateLimit = (apiType) => {
       next();
 
     } catch (err) {
-      next(); // Don't block requests if rate limiting service errors out
+      return res.status(503).json({
+        error: 'Rate limiting verification service is temporarily unavailable. Please try again later.'
+      });
     }
   };
 };
