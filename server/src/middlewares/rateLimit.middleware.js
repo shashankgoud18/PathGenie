@@ -1,9 +1,9 @@
 import { redis } from '../config/redis.js';
-import { supabase } from '../config/supabase.js';
+import { query } from '../config/db.js';
 
 const LIMITS = {
-  gemini: 1000,   // Roadmap generation limit (monthly)
-  youtube: 1000,  // YouTube search limit (monthly)
+  gemini: 10,   // Roadmap generation limit (monthly)
+  youtube: 10,  // YouTube search limit (monthly)
   general: 100   // General endpoint limit (e.g., requests per window)
 };
 
@@ -16,12 +16,12 @@ export const checkRateLimit = (apiType) => {
       }
 
       // Check if user is a Pro subscriber to bypass rate limits
-      const { data: subscriber } = await supabase
-        .from('subscribers')
-        .select('subscribed, subscription_tier, subscription_end')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const subResult = await query(
+        `SELECT subscribed, subscription_tier, subscription_end FROM subscribers WHERE user_id = $1`,
+        [user.id]
+      );
 
+      const subscriber = subResult.rows[0];
       const isPro = subscriber && subscriber.subscribed && 
         (!subscriber.subscription_end || new Date(subscriber.subscription_end) > new Date()) &&
         subscriber.subscription_tier === 'pro';
@@ -56,28 +56,32 @@ export const checkRateLimit = (apiType) => {
         return next();
       }
 
-      // PostgreSQL fallback check-and-increment via database RPC function
-      const { data: allowed, error } = await supabase.rpc('check_and_increment_api_usage', {
-        p_user_id: user.id,
-        p_api_type: apiType,
-        p_endpoint: req.path,
-        p_limit: limit
-      });
+      // PostgreSQL fallback check-and-increment
+      const today = new Date().toISOString().split('T')[0];
+      const monthFirstDay = `${monthStart}-01`;
 
-      if (error) throw error;
+      const usageResult = await query(
+        `SELECT COALESCE(SUM(request_count), 0) AS total 
+         FROM api_usage_tracking 
+         WHERE user_id = $1 AND api_type = $2 AND date >= $3`,
+        [user.id, apiType, monthFirstDay]
+      );
 
-      if (!allowed) {
+      const currentTotal = parseInt(usageResult.rows[0]?.total || '0');
+
+      if (currentTotal >= limit) {
         return res.status(429).json({ 
           error: `Monthly rate limit exceeded for ${apiType}. Upgrade to Pro for unlimited access!` 
         });
       }
 
+      logUsageToDB(user.id, apiType, req.path).catch(() => {});
       next();
 
     } catch (err) {
-      return res.status(503).json({
-        error: 'Rate limiting verification service is temporarily unavailable. Please try again later.'
-      });
+      console.error('Rate limit error:', err);
+      // In case of error, allow request to proceed to avoid breaking UX
+      next();
     }
   };
 };
@@ -85,31 +89,21 @@ export const checkRateLimit = (apiType) => {
 async function logUsageToDB(userId, apiType, endpoint) {
   const today = new Date().toISOString().split('T')[0];
   
-  const { data: existing } = await supabase
-    .from('api_usage_tracking')
-    .select('id, request_count')
-    .eq('user_id', userId)
-    .eq('api_type', apiType)
-    .eq('date', today)
-    .single();
+  const existing = await query(
+    `SELECT id, request_count FROM api_usage_tracking WHERE user_id = $1 AND api_type = $2 AND date = $3`,
+    [userId, apiType, today]
+  );
 
-  if (existing) {
-    await supabase
-      .from('api_usage_tracking')
-      .update({ 
-        request_count: existing.request_count + 1,
-        endpoint 
-      })
-      .eq('id', existing.id);
+  if (existing.rows.length > 0) {
+    await query(
+      `UPDATE api_usage_tracking SET request_count = request_count + 1, endpoint = $1 WHERE id = $2`,
+      [endpoint, existing.rows[0].id]
+    );
   } else {
-    await supabase
-      .from('api_usage_tracking')
-      .insert({
-        user_id: userId,
-        api_type: apiType,
-        endpoint,
-        request_count: 1,
-        date: today
-      });
+    await query(
+      `INSERT INTO api_usage_tracking (user_id, api_type, endpoint, request_count, date)
+       VALUES ($1, $2, $3, 1, $4)`,
+      [userId, apiType, endpoint, today]
+    );
   }
 }

@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+
+const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
 
 export interface LearningResource {
   id: string;
@@ -44,9 +44,6 @@ export const useResourceDiscovery = (taskId: string, skillName: string, roadmapI
   useEffect(() => {
     if (taskId && skillName && roadmapId) {
       fetchResources();
-      if (user) {
-        fetchUserProgress();
-      }
     }
   }, [taskId, skillName, roadmapId, user]);
 
@@ -54,19 +51,15 @@ export const useResourceDiscovery = (taskId: string, skillName: string, roadmapI
     console.log('🔍 Fetching resources for task:', taskId, 'roadmap:', roadmapId);
     
     try {
-      const { data, error } = await supabase
-        .from('learning_resources')
-        .select('*')
-        .eq('task_id', taskId)
-        .eq('roadmap_id', roadmapId)
-        .order('quality_score', { ascending: false });
-
-      if (error) throw error;
+      const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap/resources/${roadmapId}/${taskId}`);
+      if (!res.ok) throw new Error('Failed to fetch resources');
       
-      console.log(`📚 Found ${data?.length || 0} resources for task ${taskId} in roadmap ${roadmapId}`);
+      const data = await res.json();
+      const rawResources = data.resources || [];
       
-      // Type cast the data to match our LearningResource interface
-      const typedResources = (data || []).map(item => ({
+      console.log(`📚 Found ${rawResources.length} resources for task ${taskId}`);
+      
+      const typedResources = rawResources.map((item: any) => ({
         ...item,
         resource_type: item.resource_type as LearningResource['resource_type'],
         difficulty_level: item.difficulty_level as LearningResource['difficulty_level']
@@ -75,75 +68,24 @@ export const useResourceDiscovery = (taskId: string, skillName: string, roadmapI
       setResources(typedResources);
     } catch (error) {
       console.error('💥 Error fetching resources:', error);
-    }
-  };
-
-  const fetchUserProgress = async () => {
-    if (!user) return;
-
-    console.log('👤 Fetching user progress for roadmap:', roadmapId);
-
-    try {
-      const { data, error } = await supabase
-        .from('user_resource_progress')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('roadmap_id', roadmapId);
-
-      if (error) throw error;
-
-      console.log(`📊 Found progress for ${data?.length || 0} resources`);
-
-      const progressMap: Record<string, UserResourceProgress> = {};
-      
-      (data || []).forEach((progress) => {
-        progressMap[progress.resource_id] = progress as UserResourceProgress;
-      });
-
-      setUserProgress(progressMap);
-    } catch (error) {
-      console.error('💥 Error fetching user progress:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const updateResourceStatus = async (resourceId: string, status: UserResourceProgress['status']) => {
-    if (!user) return;
-
-    try {
-      const existingProgress = userProgress[resourceId];
-      const updateData: any = {
-        user_id: user.id,
+    // Local state progress tracker
+    setUserProgress(prev => ({
+      ...prev,
+      [resourceId]: {
+        id: resourceId,
+        user_id: user?.id || 'guest',
         resource_id: resourceId,
         roadmap_id: roadmapId,
         status,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (status === 'in_progress' && !existingProgress?.started_at) {
-        updateData.started_at = new Date().toISOString();
+        updated_at: new Date().toISOString()
       }
-
-      if (status === 'completed') {
-        updateData.completed_at = new Date().toISOString();
-      }
-
-      const { data, error } = await supabase
-        .from('user_resource_progress')
-        .upsert(updateData, { onConflict: 'user_id,resource_id' })
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      setUserProgress(prev => ({
-        ...prev,
-        [resourceId]: data as UserResourceProgress
-      }));
-    } catch (error) {
-      console.error('Error updating resource status:', error);
-    }
+    }));
   };
 
   const getResourcesByType = (type: LearningResource['resource_type']) => {

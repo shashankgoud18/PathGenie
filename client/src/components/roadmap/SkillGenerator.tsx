@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, User, Clock, Target, BookOpen, Zap, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
@@ -17,12 +16,12 @@ const SkillGenerator = () => {
   const [learningStyle, setLearningStyle] = useState('');
   const [goal, setGoal] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
   const [timeline, setTimeline] = useState('4');
   const { subscription, usage, refreshSubscription, isProUser } = useSubscription();
 
-  const monthlyLimit = 1000;
+  const monthlyLimit = 10;
   const canGenerateRoadmap = isProUser || usage.gemini < monthlyLimit;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,13 +45,11 @@ const SkillGenerator = () => {
     setIsLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token || ''}`
         },
         body: JSON.stringify({ 
           skill: skill.trim(), 

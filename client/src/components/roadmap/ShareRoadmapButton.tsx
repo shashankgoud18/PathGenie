@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Share2, Globe, Lock, Check } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Share2, Globe, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -28,17 +26,6 @@ const ShareRoadmapButton: React.FC<ShareRoadmapButtonProps> = ({
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('roadmaps')
-        .update({ 
-          is_public: !isPublic,
-          shared_at: !isPublic ? new Date().toISOString() : null
-        })
-        .eq('id', roadmapId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
       onUpdate(!isPublic);
       toast.success(
         !isPublic 

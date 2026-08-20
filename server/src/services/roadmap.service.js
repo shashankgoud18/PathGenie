@@ -1,5 +1,5 @@
-import { aiModel } from '../config/gemini.js';
-import { supabase } from '../config/supabase.js';
+import { getAIModel } from '../config/gemini.js';
+import { query } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { CacheService } from './cache.service.js';
 
@@ -58,13 +58,14 @@ export class RoadmapService {
     }
 
     try {
-      if (!aiModel) {
+      const model = getAIModel();
+      if (!model) {
         throw new Error('Gemini AI model SDK is not configured on server');
       }
 
       const prompt = `Create a detailed ${timelineWeeks}-week learning roadmap for "${skill}".\n\nRequirements:\n- Current Level: ${level}\n- Weekly Time Commitment: ${timeCommitment} hours\n- Learning Style: ${learningStyle || 'Mixed'}\n- End Goal: ${goal || 'General mastery'}\n- Timeline: ${timelineWeeks} weeks\n\nReturn ONLY a valid JSON object with this exact structure:\n{\n  "title": "${skill} Mastery Roadmap",\n  "duration": "${timelineWeeks} Weeks",\n  "totalHours": "${timeCommitment}",\n  "motivationalTip": "Stay consistent and practice daily!",\n  "summary": "This roadmap will guide you to master ${skill}",\n  "weeks": [\n    {\n      "week": 1,\n      "title": "Foundation & Setup",\n      "description": "Build fundamentals and setup",\n      "difficulty": "Beginner",\n      "estimatedHours": "${timeCommitment} hours",\n      "goals": ["Learn basics", "Setup environment", "First practice"],\n      "tasks": [\n        {\n          "id": "w1-t1",\n          "title": "Learn ${skill} fundamentals and core concepts",\n          "type": "video",\n          "duration": "2 hours",\n          "resource": "Official documentation"\n        },\n        {\n          "id": "w1-t2", \n          "title": "Setup ${skill} development environment and tools",\n          "type": "practice",\n          "duration": "1 hour",\n          "resource": "Setup guide"\n        }\n      ],\n      "checkpoint": "Complete basic setup and understand core concepts"\n    }\n  ]\n}\n\nSPEED & CONCISENESS REQUIREMENT: To ensure maximum generation speed, keep all text fields (motivational tips, summaries, descriptions, checkpoints, and task titles) brief (maximum of 12 words per text block). Limit every week to exactly 3-4 key tasks to form a proper, comprehensive plan. Make titles descriptive but very concise.\n\nCRITICAL FOR LONG TIMELINES: If the timeline is more than 4 weeks (e.g., 8 or 12 weeks), you MUST keep all titles, descriptions, and goals short and concise, and limit each week to exactly 3 key tasks. This is absolutely necessary to ensure the entire JSON response fits within the token limits and does not get cut off.\n\nFor every task, make the title very specific and searchable for YouTube tutorials. Make titles descriptive and suitable for YouTube search.\n\nMake the roadmap progressive, practical, and tailored to ${level} level. Include ${timelineWeeks} weeks total.`;
 
-      const response = await aiModel.generateContent(prompt);
+      const response = await model.generateContent(prompt);
       const resultText = response.response.text();
 
       let cleanContent = resultText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -117,43 +118,102 @@ export class RoadmapService {
   }
 
   /**
-   * Helper database transaction to save roadmap values into subscribers table.
+   * Helper database transaction to save roadmap values into PostgreSQL database.
    */
   static async saveRoadmapToDB(userId, skill, level, timeCommitment, learningStyle, goal, timelineWeeks, roadmapData) {
-    const { data: roadmap, error } = await supabase
-      .from('roadmaps')
-      .insert({
-        user_id: userId,
-        skill_name: skill,
-        current_level: level,
-        time_commitment: timeCommitment.toString(),
-        learning_style: learningStyle,
-        end_goal: goal,
-        timeline: timelineWeeks.toString(),
-        generated_data: roadmapData
-      })
-      .select()
-      .single();
+    const res = await query(
+      `INSERT INTO roadmaps (user_id, skill_name, current_level, time_commitment, learning_style, end_goal, timeline, generated_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        userId,
+        skill,
+        level,
+        timeCommitment.toString(),
+        learningStyle || 'Mixed',
+        goal || '',
+        timelineWeeks.toString(),
+        JSON.stringify(roadmapData)
+      ]
+    );
 
-    if (error) {
-      throw new Error(`Database save failed: ${error.message}`);
+    if (res.rows.length === 0) {
+      throw new Error('Database save failed');
     }
 
-    return roadmap;
+    return res.rows[0];
   }
 
-  static async searchYouTubeResources(query) {
+  /**
+   * Fetch all roadmaps for a user
+   */
+  static async getUserRoadmaps(userId) {
+    const res = await query(
+      `SELECT * FROM roadmaps WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    return res.rows;
+  }
+
+  /**
+   * Fetch public community roadmaps
+   */
+  static async getPublicRoadmaps() {
+    const res = await query(
+      `SELECT * FROM roadmaps ORDER BY created_at DESC LIMIT 50`
+    );
+    return res.rows;
+  }
+
+  /**
+   * Fetch single roadmap by ID
+   */
+  static async getRoadmapById(roadmapId, userId) {
+    const res = await query(
+      `SELECT * FROM roadmaps WHERE id = $1 AND user_id = $2`,
+      [roadmapId, userId]
+    );
+    if (res.rows.length === 0) {
+      throw new Error('Roadmap not found or unauthorized');
+    }
+    return res.rows[0];
+  }
+
+  /**
+   * Delete a roadmap by ID
+   */
+  static async deleteRoadmap(roadmapId, userId) {
+    const res = await query(
+      `DELETE FROM roadmaps WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [roadmapId, userId]
+    );
+    if (res.rows.length === 0) {
+      throw new Error('Roadmap not found or unauthorized');
+    }
+    return { success: true };
+  }
+
+  static async searchYouTubeResources(queryText) {
     const key = process.env.YOUTUBE_API_KEY;
     if (!key) return [];
 
+    // Extract skill name from query for cache lookup (first word is typically the skill)
+    const skillName = queryText.split(' ')[0] || 'general';
+
+    // 1. Check YouTube cache first (Redis → PG fallback)
+    const cached = await CacheService.getYouTubeVideo(queryText, skillName);
+    if (cached) {
+      return Array.isArray(cached) ? cached : [];
+    }
+
     try {
       const response = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&order=relevance&maxResults=2&key=${key}`
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(queryText)}&type=video&order=relevance&maxResults=2&key=${key}`
       );
 
       const data = await response.json();
 
-      return data.items?.map((item) => ({
+      const results = data.items?.map((item) => ({
         title: item.snippet.title,
         url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
         description: item.snippet.description,
@@ -161,17 +221,25 @@ export class RoadmapService {
         source: `YouTube - ${item.snippet.channelTitle}`,
         estimatedTime: 30,
         difficultyLevel: 'beginner',
-        tags: [query.toLowerCase().replace(/\s+/g, '-'), 'video', 'tutorial'],
+        tags: [queryText.toLowerCase().replace(/\s+/g, '-'), 'video', 'tutorial'],
         qualityScore: 4,
         isOfficial: item.snippet.channelTitle.toLowerCase().includes('official')
       })) || [];
+
+      // 2. Persist to cache in background (30 day TTL)
+      if (results.length > 0) {
+        CacheService.setYouTubeVideo(queryText, skillName, results).catch(() => {});
+      }
+
+      return results;
     } catch (error) {
       return [];
     }
   }
 
   static async generateResourcesWithGemini(taskTitle, skillName, taskType) {
-    if (!aiModel) {
+    const model = getAIModel();
+    if (!model) {
       return [];
     }
 
@@ -197,12 +265,6 @@ For each resource, provide:
 - qualityScore: 4-5 (only high quality)
 - isOfficial: true if from official docs/organization
 
-Focus on these specific sources:
-- Official documentation (React.dev, MDN, Python.org)
-- PDF guides from reputable sources
-- GitHub repositories with examples
-- High-quality tech blogs and articles
-
 Return ONLY valid JSON array with 3-4 resources:
 [
   {
@@ -219,7 +281,7 @@ Return ONLY valid JSON array with 3-4 resources:
   }
 ]`;
 
-      const response = await aiModel.generateContent(prompt);
+      const response = await model.generateContent(prompt);
       const text = response.response.text();
 
       if (!text) {
@@ -249,23 +311,28 @@ Return ONLY valid JSON array with 3-4 resources:
     }
   }
 
+  /**
+   * Fetch resources for specific task & roadmap
+   */
+  static async getTaskResources(roadmapId, taskId) {
+    const res = await query(
+      `SELECT * FROM learning_resources WHERE roadmap_id = $1 AND task_id = $2`,
+      [roadmapId, taskId]
+    );
+    return res.rows;
+  }
+
   static async generateResources(userId, params) {
     const { taskId, skillName, taskTitle, taskType, roadmapId } = params;
 
-    // Check if resources already exist
-    const { data: existingResources } = await supabase
-      .from('learning_resources')
-      .select('id')
-      .eq('task_id', taskId)
-      .eq('roadmap_id', roadmapId);
+    // Check if resources already exist in PostgreSQL
+    const existingRes = await query(
+      `SELECT * FROM learning_resources WHERE task_id = $1 AND roadmap_id = $2`,
+      [taskId, roadmapId]
+    );
 
-    if (existingResources && existingResources.length > 0) {
-      const { data } = await supabase
-        .from('learning_resources')
-        .select('*')
-        .eq('task_id', taskId)
-        .eq('roadmap_id', roadmapId);
-      return { message: 'Resources already exist', resources: data };
+    if (existingRes.rows.length > 0) {
+      return { message: 'Resources already exist', resources: existingRes.rows };
     }
 
     // Generate resources
@@ -279,34 +346,36 @@ Return ONLY valid JSON array with 3-4 resources:
       return { message: 'No resources found', resources: [] };
     }
 
-    const resourcesData = allResources.map(resource => ({
-      task_id: taskId,
-      roadmap_id: roadmapId,
-      skill_name: skillName,
-      title: resource.title,
-      url: resource.url,
-      resource_type: resource.resourceType,
-      source: resource.source,
-      description: resource.description,
-      quality_score: resource.qualityScore,
-      difficulty_level: resource.difficultyLevel,
-      estimated_time_minutes: resource.estimatedTime,
-      tags: resource.tags,
-      is_official: resource.isOfficial
-    }));
-
-    const { data, error } = await supabase
-      .from('learning_resources')
-      .insert(resourcesData)
-      .select();
-
-    if (error) {
-      throw new Error(`Failed to save learning resources: ${error.message}`);
+    const insertedResources = [];
+    for (const resource of allResources) {
+      const insRes = await query(
+        `INSERT INTO learning_resources (
+          roadmap_id, task_id, skill_name, title, url, resource_type, source,
+          description, quality_score, difficulty_level, estimated_time_minutes, tags, is_official
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING *`,
+        [
+          roadmapId,
+          taskId,
+          skillName,
+          resource.title,
+          resource.url,
+          resource.resourceType,
+          resource.source,
+          resource.description,
+          resource.qualityScore,
+          resource.difficultyLevel,
+          resource.estimatedTime,
+          resource.tags,
+          resource.isOfficial
+        ]
+      );
+      insertedResources.push(insRes.rows[0]);
     }
 
     return {
-      message: `Generated ${allResources.length} focused resources`,
-      resources: data
+      message: `Generated ${insertedResources.length} focused resources`,
+      resources: insertedResources
     };
   }
 }

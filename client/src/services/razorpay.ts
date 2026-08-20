@@ -1,4 +1,3 @@
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface RazorpayOptions {
@@ -31,19 +30,24 @@ declare global {
 const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
 
 export class RazorpayService {
+  private static getAuthToken(): string {
+    const token = sessionStorage.getItem('auth_token');
+    if (!token) {
+      throw new Error('Please sign in to continue');
+    }
+    return token;
+  }
+
   private static async createOrder(userEmail: string, userName?: string) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('Please sign in to continue');
-      }
+      const token = this.getAuthToken();
 
       const res = await fetch(`${EXPRESS_SERVER_URL}/api/payment/create-order`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           userEmail,
@@ -67,17 +71,14 @@ export class RazorpayService {
 
   private static async verifyPayment(paymentData: any) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('Authentication required');
-      }
+      const token = this.getAuthToken();
 
       const res = await fetch(`${EXPRESS_SERVER_URL}/api/payment/verify`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           razorpay_order_id: paymentData.razorpay_order_id,
@@ -157,17 +158,14 @@ export class RazorpayService {
 
   public static async cancelSubscription() {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('Authentication required');
-      }
+      const token = this.getAuthToken();
 
       const res = await fetch(`${EXPRESS_SERVER_URL}/api/payment/cancel`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${token}`
         }
       });
 

@@ -11,46 +11,44 @@ const UsageIndicator = () => {
   if (isProUser) {
     return (
       <div className="flex items-center gap-2">
-        <Crown className="w-4 h-4 text-yellow-400" />
-        <Badge className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white text-xs font-medium">
-          Pro
-        </Badge>
+        <Crown className="w-4 h-4 text-amber-400" />
+        <span className="text-[10px] font-mono text-amber-400 border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 rounded uppercase tracking-wider">
+          Pro · Unlimited
+        </span>
       </div>
     );
   }
 
-  const monthlyLimit = 1;
-  const usagePercent = Math.min((usage.gemini / monthlyLimit) * 100, 100);
-  const remainingRoadmaps = Math.max(monthlyLimit - usage.gemini, 0);
+  // Free tier: 10 roadmap generations per month (server-side limit)
+  const monthlyLimit = 10;
+  const used = usage.gemini;
+  const remaining = Math.max(monthlyLimit - used, 0);
+  const usagePercent = Math.min((used / monthlyLimit) * 100, 100);
 
   const getProgressColor = () => {
-    if (usagePercent === 0) return 'bg-cyan-400';
-    if (usagePercent < 100) return 'bg-cyan-500';
+    if (usagePercent < 60) return 'bg-cyan-400';
+    if (usagePercent < 90) return 'bg-amber-400';
     return 'bg-red-400';
-  };
-
-  const getProgressBgColor = () => {
-    return 'bg-slate-700/50';
   };
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex flex-col gap-1 min-w-[120px]">
+      <div className="flex flex-col gap-1 min-w-[140px]">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-300 font-medium">Roadmaps</span>
-          <span className="text-xs text-cyan-400 font-semibold">{remainingRoadmaps}/{monthlyLimit}</span>
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Roadmaps</span>
+          <span className="text-[10px] font-mono text-slate-300 font-semibold">{remaining}/{monthlyLimit} left</span>
         </div>
-        <div className={`h-2 w-full rounded-full ${getProgressBgColor()} overflow-hidden border border-slate-600/30`}>
-          <div 
-            className={`h-full rounded-full transition-all duration-500 ${getProgressColor()} shadow-sm`}
+        <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${getProgressColor()}`}
             style={{ width: `${usagePercent}%` }}
           />
         </div>
       </div>
-      {remainingRoadmaps === 0 && (
+      {remaining === 0 && (
         <Link to="/pricing">
-          <Badge variant="outline" className="text-cyan-400 border-cyan-400 text-xs hover:bg-cyan-400/20 cursor-pointer transition-colors group">
-            <TrendingUp className="w-3 h-3 mr-1 group-hover:scale-110 transition-transform" />
+          <Badge variant="outline" className="text-amber-400 border-amber-500/30 text-[10px] font-mono hover:bg-amber-400/10 cursor-pointer transition-colors">
+            <TrendingUp className="w-3 h-3 mr-1" />
             Upgrade
           </Badge>
         </Link>

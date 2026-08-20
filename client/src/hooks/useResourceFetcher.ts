@@ -1,6 +1,4 @@
-
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { LearningResource } from './useResourceDiscovery';
 
 interface ResourceFetcherOptions {
@@ -30,13 +28,14 @@ export const useResourceFetcher = () => {
     try {
       console.log('📡 Calling generate resources Express API...');
       
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = sessionStorage.getItem('auth_token') || '';
 
       const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap/resources`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           taskId: options.taskId,

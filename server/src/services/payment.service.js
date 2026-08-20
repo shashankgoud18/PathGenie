@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { razorpay } from '../config/razorpay.js';
-import { supabase } from '../config/supabase.js';
+import { query } from '../config/db.js';
 
 export class PaymentService {
   /**
@@ -30,49 +30,19 @@ export class PaymentService {
     const order = await razorpay.orders.create(options);
 
     // Save order details to subscribers table
-    const { data: existingSubscriber, error: fetchError } = await supabase
-      .from('subscribers')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (fetchError) {
-      throw new Error('Failed to prepare subscription records');
-    }
-
-    let dbError = null;
     const today = new Date().toISOString();
 
-    if (existingSubscriber) {
-      const { error } = await supabase
-        .from('subscribers')
-        .update({
-          email,
-          subscribed: false,
-          subscription_tier: 'free',
-          razorpay_order_id: order.id,
-          updated_at: today
-        })
-        .eq('id', existingSubscriber.id);
-      dbError = error;
-    } else {
-      const { error } = await supabase
-        .from('subscribers')
-        .insert({
-          user_id: userId,
-          email,
-          subscribed: false,
-          subscription_tier: 'free',
-          razorpay_order_id: order.id,
-          created_at: today,
-          updated_at: today
-        });
-      dbError = error;
-    }
-
-    if (dbError) {
-      throw new Error('Failed to save payment state to database');
-    }
+    await query(
+      `INSERT INTO subscribers (user_id, email, subscribed, subscription_tier, razorpay_order_id, created_at, updated_at)
+       VALUES ($1, $2, false, 'free', $3, $4, $4)
+       ON CONFLICT (user_id) DO UPDATE SET
+         email = EXCLUDED.email,
+         subscribed = false,
+         subscription_tier = 'free',
+         razorpay_order_id = EXCLUDED.razorpay_order_id,
+         updated_at = EXCLUDED.updated_at`,
+      [userId, email, order.id, today]
+    );
 
     return {
       orderId: order.id,
@@ -108,26 +78,26 @@ export class PaymentService {
     // Activate the subscription in subscribers database table
     const subscriptionEnd = new Date();
     subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1);
+    const today = new Date().toISOString();
 
-    const { data: subscriber, error } = await supabase
-      .from('subscribers')
-      .update({
-        subscribed: true,
-        subscription_tier: 'pro',
-        subscription_end: subscriptionEnd.toISOString(),
-        razorpay_payment_id,
-        order_paid: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId)
-      .select()
-      .maybeSingle();
+    const res = await query(
+      `UPDATE subscribers SET
+         subscribed = true,
+         subscription_tier = 'pro',
+         subscription_end = $1,
+         razorpay_payment_id = $2,
+         order_paid = true,
+         updated_at = $3
+       WHERE user_id = $4
+       RETURNING *`,
+      [subscriptionEnd.toISOString(), razorpay_payment_id, today, userId]
+    );
 
-    if (error || !subscriber) {
+    if (res.rows.length === 0) {
       throw new Error('Database activation failed');
     }
 
-    return subscriber;
+    return res.rows[0];
   }
 
   /**
@@ -159,34 +129,36 @@ export class PaymentService {
 
     if (payment.amount === 7900 && payment.currency === 'INR') {
       const isPaidEvent = event.event === 'payment.captured' || event.event === 'payment.authorized';
-      
-      const updateData = {
-        subscribed: isPaidEvent,
-        subscription_tier: isPaidEvent ? 'pro' : 'free',
-        order_paid: isPaidEvent,
-        razorpay_payment_id: payment.id,
-        updated_at: new Date().toISOString()
-      };
+      const today = new Date().toISOString();
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + 1);
 
-      if (isPaidEvent) {
-        const expiry = new Date();
-        expiry.setMonth(expiry.getMonth() + 1);
-        updateData.subscription_end = expiry.toISOString();
-      }
-
-      let query = supabase.from('subscribers').update(updateData);
-      
       if (orderId) {
-        query = query.eq('razorpay_order_id', orderId);
+        await query(
+          `UPDATE subscribers SET
+             subscribed = $1,
+             subscription_tier = $2,
+             order_paid = $1,
+             razorpay_payment_id = $3,
+             subscription_end = $4,
+             updated_at = $5
+           WHERE razorpay_order_id = $6`,
+          [isPaidEvent, isPaidEvent ? 'pro' : 'free', payment.id, isPaidEvent ? expiry.toISOString() : null, today, orderId]
+        );
       } else if (userId) {
-        query = query.eq('user_id', userId);
+        await query(
+          `UPDATE subscribers SET
+             subscribed = $1,
+             subscription_tier = $2,
+             order_paid = $1,
+             razorpay_payment_id = $3,
+             subscription_end = $4,
+             updated_at = $5
+           WHERE user_id = $6`,
+          [isPaidEvent, isPaidEvent ? 'pro' : 'free', payment.id, isPaidEvent ? expiry.toISOString() : null, today, userId]
+        );
       } else {
         return { success: false, reason: 'No order_id or user_id mapping reference found' };
-      }
-
-      const { error } = await query;
-      if (error) {
-        throw error;
       }
 
       return { success: true };
@@ -199,19 +171,21 @@ export class PaymentService {
    * Cancels a premium subscription
    */
   static async cancelSubscription(userId) {
-    const { error } = await supabase
-      .from('subscribers')
-      .update({
-        subscribed: false,
-        subscription_tier: 'free',
-        subscription_end: null,
-        order_paid: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
+    const today = new Date().toISOString();
+    const res = await query(
+      `UPDATE subscribers SET
+         subscribed = false,
+         subscription_tier = 'free',
+         subscription_end = null,
+         order_paid = false,
+         updated_at = $1
+       WHERE user_id = $2
+       RETURNING *`,
+      [today, userId]
+    );
 
-    if (error) {
-      throw new Error(`Cancellation database update failed: ${error.message}`);
+    if (res.rows.length === 0) {
+      throw new Error('Cancellation database update failed');
     }
 
     return { success: true };

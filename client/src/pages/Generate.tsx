@@ -9,6 +9,7 @@ import CursorGlow from '@/components/layout/CursorGlow';
 import SEO from '@/components/layout/SEO';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import UsageIndicator from '@/components/roadmap/UsageIndicator';
 
 const Generate = () => {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ const Generate = () => {
       <div className="pt-28 pb-20 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Back button */}
-          <div className="flex justify-start mb-6">
+          <div className="flex justify-between items-center mb-6">
             <Button
               onClick={() => navigate('/roadmaps')}
               variant="ghost"
@@ -58,6 +59,7 @@ const Generate = () => {
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
               Back to Dashboard
             </Button>
+            <UsageIndicator />
           </div>
 
           {/* Skill Generator container */}

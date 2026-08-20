@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Users, Target, Clock, TrendingUp, Star, Search, ArrowLeft, Crown, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +11,8 @@ import Footer from '@/components/layout/Footer';
 import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import CursorGlow from '@/components/layout/CursorGlow';
+
+const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
 
 const Community = () => {
   const { user } = useAuth();
@@ -27,14 +28,12 @@ const Community = () => {
 
   const fetchPublicRoadmaps = async () => {
     try {
-      const { data, error } = await supabase
-        .from('roadmaps')
-        .select('*')
-        .eq('is_public', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRoadmaps(data || []);
+      const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap/public`);
+      if (!res.ok) {
+        throw new Error('Failed to load community roadmaps');
+      }
+      const data = await res.json();
+      setRoadmaps(data.roadmaps || []);
     } catch (error) {
       console.error('Error fetching public roadmaps:', error);
       toast.error('Failed to load community roadmaps');

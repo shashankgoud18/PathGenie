@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, Clock, Download, Share, Bell, ChevronRight, Award, Compass, Zap, CheckCircle2, Star, Target, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Confetti } from '@/components/ui/Confetti';
 import RoadmapWeek from './RoadmapWeek';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useRoadmapProgress } from '@/hooks/useRoadmapProgress';
 
 interface RoadmapDisplayProps {
   roadmapData?: any;
@@ -15,63 +15,15 @@ interface RoadmapDisplayProps {
 }
 
 const RoadmapDisplay: React.FC<RoadmapDisplayProps> = ({ roadmapData, roadmapId, onBack }) => {
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  const { completedTasks, toggleTask, bulkCompleteWeek } = useRoadmapProgress(roadmapId || '');
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [isReminderOpen, setIsReminderOpen] = useState(false);
   const [reminderTime, setReminderTime] = useState('18:00');
   const [reminderFreq, setReminderFreq] = useState('daily');
   const [reminderChannel, setReminderChannel] = useState('email');
 
-  // Load completed tasks from Supabase / localStorage fallback
-  useEffect(() => {
-    const fetchProgress = async () => {
-      if (!roadmapId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('roadmaps')
-          .select('completed_tasks')
-          .eq('id', roadmapId)
-          .single();
-
-        if (error) throw error;
-
-        if (data?.completed_tasks) {
-          setCompletedTasks(new Set(data.completed_tasks));
-        } else {
-          // Fallback to localStorage if database has no progress yet
-          const savedProgress = localStorage.getItem(`pathgenie-roadmap-progress-${roadmapId}`);
-          if (savedProgress) {
-            const parsed = JSON.parse(savedProgress);
-            if (Array.isArray(parsed)) {
-              setCompletedTasks(new Set(parsed));
-              // Sync local progress to DB
-              await supabase
-                .from('roadmaps')
-                .update({ completed_tasks: parsed })
-                .eq('id', roadmapId);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load roadmap progress from DB:', e);
-        // Fallback to localStorage
-        const savedProgress = localStorage.getItem(`pathgenie-roadmap-progress-${roadmapId}`);
-        if (savedProgress) {
-          try {
-            const parsed = JSON.parse(savedProgress);
-            if (Array.isArray(parsed)) {
-              setCompletedTasks(new Set(parsed));
-            }
-          } catch (err) {
-            console.error('Failed to parse saved progress', err);
-          }
-        }
-      }
-    };
-
-    fetchProgress();
-  }, [roadmapId]);
+  // Load completed tasks from localStorage — handled by useRoadmapProgress hook
+  useEffect(() => {}, [roadmapId]);
 
   // Early return if no roadmap data is provided
   if (!roadmapData) {
@@ -99,35 +51,8 @@ const RoadmapDisplay: React.FC<RoadmapDisplayProps> = ({ roadmapData, roadmapId,
     );
   }
 
-  const toggleTask = async (taskId: string) => {
-    const newCompleted = new Set(completedTasks);
-    let isChecking = false;
-
-    if (newCompleted.has(taskId)) {
-      newCompleted.delete(taskId);
-    } else {
-      newCompleted.add(taskId);
-      isChecking = true;
-    }
-    
-    setCompletedTasks(newCompleted);
-    const completedArray = Array.from(newCompleted);
-    
-    if (roadmapId) {
-      localStorage.setItem(`pathgenie-roadmap-progress-${roadmapId}`, JSON.stringify(completedArray));
-      
-      // Update in Supabase
-      try {
-        const { error } = await supabase
-          .from('roadmaps')
-          .update({ completed_tasks: completedArray })
-          .eq('id', roadmapId);
-        if (error) throw error;
-      } catch (err) {
-        console.error('Failed to save progress to database:', err);
-        toast.error('Progress saved locally, but failed to sync to cloud.');
-      }
-    }
+  const toggleTaskHandler = async (taskId: string) => {
+    const { isChecking, newCompleted } = toggleTask(taskId);
 
     // Interactive week complete celebration check
     if (isChecking) {
@@ -142,44 +67,142 @@ const RoadmapDisplay: React.FC<RoadmapDisplayProps> = ({ roadmapData, roadmapId,
     }
   };
 
-  const handleExportToPDF = () => {
-    const roadmapText = `
-=============================================
-${displayData.title}
-=============================================
-Duration: ${displayData.duration}
-Time Commitment: ${displayData.totalHours} hours/week
-Summary: ${displayData.summary || ''}
+  const handleExportToPDF = async () => {
+    try {
+      // Dynamically import jsPDF to avoid bundle bloat on initial load
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      const usableWidth = pageWidth - margin * 2;
+      let y = 20;
 
-${displayData.weeks.map(week => `
----------------------------------------------
-Week ${week.week}: ${week.title}
----------------------------------------------
-Difficulty: ${week.difficulty}
-Description: ${week.description}
+      const addPageIfNeeded = (extraHeight = 10) => {
+        if (y + extraHeight > 270) {
+          doc.addPage();
+          y = 20;
+        }
+      };
 
-Goals:
-${week.goals?.map(goal => `• ${goal}`).join('\n') || 'N/A'}
+      // Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(30, 30, 30);
+      doc.text(displayData.title, margin, y);
+      y += 8;
 
-Tasks:
-${week.tasks?.map(task => `• [${completedTasks.has(task.id) ? 'X' : ' '}] ${task.title} (${task.duration}) - ${task.resource || 'Self study'}`).join('\n') || 'N/A'}
+      // Meta
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Duration: ${displayData.duration}  |  Time: ${displayData.totalHours} hrs/week`, margin, y);
+      y += 6;
+      if (displayData.summary) {
+        const summaryLines = doc.splitTextToSize(displayData.summary, usableWidth);
+        doc.text(summaryLines, margin, y);
+        y += summaryLines.length * 5 + 4;
+      }
 
-Checkpoint:
-${week.checkpoint || 'N/A'}
-`).join('\n')}
-    `;
+      // Progress bar text
+      const totalTasks = displayData.weeks.reduce((acc: number, w: any) => acc + (w.tasks?.length || 0), 0);
+      const completedCount = completedTasks.size;
+      doc.setFontSize(9);
+      doc.setTextColor(140, 92, 246);
+      doc.text(`Progress: ${completedCount}/${totalTasks} tasks completed (${Math.round((completedCount / totalTasks) * 100)}%)`, margin, y);
+      y += 8;
 
-    const blob = new Blob([roadmapText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${displayData.title.toLowerCase().replace(/\s+/g, '-')}-checklist.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // Divider
+      doc.setDrawColor(220, 220, 220);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 6;
 
-    toast.success('Roadmap outline exported successfully!');
+      // Weeks
+      for (const week of displayData.weeks) {
+        addPageIfNeeded(20);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(30, 30, 30);
+        doc.text(`Week ${week.week}: ${week.title}`, margin, y);
+        y += 6;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        if (week.description) {
+          const descLines = doc.splitTextToSize(week.description, usableWidth);
+          addPageIfNeeded(descLines.length * 4 + 4);
+          doc.text(descLines, margin, y);
+          y += descLines.length * 4 + 3;
+        }
+
+        // Goals
+        if (week.goals?.length) {
+          addPageIfNeeded(8);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(60, 60, 60);
+          doc.text('Goals:', margin + 2, y);
+          y += 4;
+          doc.setFont('helvetica', 'normal');
+          for (const goal of week.goals) {
+            addPageIfNeeded(5);
+            const goalLines = doc.splitTextToSize(`• ${goal}`, usableWidth - 4);
+            doc.text(goalLines, margin + 4, y);
+            y += goalLines.length * 4 + 1;
+          }
+          y += 2;
+        }
+
+        // Tasks
+        if (week.tasks?.length) {
+          addPageIfNeeded(8);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(60, 60, 60);
+          doc.text('Tasks:', margin + 2, y);
+          y += 4;
+          for (const task of week.tasks) {
+            addPageIfNeeded(6);
+            const status = completedTasks.has(task.id) ? '[✓]' : '[ ]';
+            const taskText = `${status} ${task.title} (${task.duration})`;
+            doc.setFont('helvetica', completedTasks.has(task.id) ? 'italic' : 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(completedTasks.has(task.id) ? 130 : 40, 40, 40);
+            const tLines = doc.splitTextToSize(taskText, usableWidth - 4);
+            doc.text(tLines, margin + 4, y);
+            y += tLines.length * 4 + 1;
+          }
+          y += 2;
+        }
+
+        // Checkpoint
+        if (week.checkpoint) {
+          addPageIfNeeded(8);
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          doc.setTextColor(34, 197, 94);
+          const cpLines = doc.splitTextToSize(`✔ Checkpoint: ${week.checkpoint}`, usableWidth - 2);
+          doc.text(cpLines, margin + 2, y);
+          y += cpLines.length * 4 + 2;
+        }
+
+        doc.setDrawColor(240, 240, 240);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 5;
+      }
+
+      // Footer on last page
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(180, 180, 180);
+      doc.text(`Generated by PathGenie · pathgenie.tech`, margin, 285);
+
+      doc.save(`${displayData.title.toLowerCase().replace(/\s+/g, '-')}-roadmap.pdf`);
+      toast.success('Roadmap exported as PDF!');
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Failed to generate PDF. Please try again.');
+    }
   };
 
   const handleShareRoadmap = async () => {
@@ -218,7 +241,7 @@ ${week.checkpoint || 'N/A'}
   };
 
   // Stats calculation
-  const totalTasks = displayData.weeks.reduce((acc, week) => acc + (week.tasks?.length || 0), 0);
+  const totalTasks = displayData.weeks.reduce((acc: number, week: any) => acc + (week.tasks?.length || 0), 0);
   const completedCount = completedTasks.size;
   const progressPercentage = totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
@@ -342,32 +365,14 @@ ${week.checkpoint || 'N/A'}
           <RoadmapWeek
             week={activeWeekData}
             completedTasks={completedTasks}
-            onToggleTask={toggleTask}
+            onToggleTask={toggleTaskHandler}
             isOpen={true}
             onToggleWeek={() => {}}
             roadmapId={roadmapId}
             onCheckpointComplete={async () => {
-              // Mark all tasks in active week completed
-              const newCompleted = new Set(completedTasks);
-              activeWeekData.tasks?.forEach((task: any) => {
-                newCompleted.add(task.id);
-              });
-              setCompletedTasks(newCompleted);
-              const completedArray = Array.from(newCompleted);
-              
-              if (roadmapId) {
-                localStorage.setItem(`pathgenie-roadmap-progress-${roadmapId}`, JSON.stringify(completedArray));
-                
-                try {
-                  const { error } = await supabase
-                    .from('roadmaps')
-                    .update({ completed_tasks: completedArray })
-                    .eq('id', roadmapId);
-                  if (error) throw error;
-                } catch (err) {
-                  console.error('Failed to save progress to database on checkpoint complete:', err);
-                }
-              }
+              // Bulk-complete all tasks in the active week
+              const taskIds = activeWeekData.tasks?.map((t: any) => t.id) || [];
+              await bulkCompleteWeek(taskIds);
 
               // Trigger confetti celebration!
               window.dispatchEvent(new CustomEvent('trigger-confetti'));
@@ -396,7 +401,7 @@ ${week.checkpoint || 'N/A'}
             className="bg-white hover:bg-slate-200 text-black font-semibold text-xs py-2 px-5 rounded-lg shadow-md transition-all hover:scale-[1.01]"
           >
             <Download className="w-3.5 h-3.5 mr-2 shrink-0" />
-            Export Outline
+            Export PDF
           </Button>
           <Button 
             onClick={handleShareRoadmap}

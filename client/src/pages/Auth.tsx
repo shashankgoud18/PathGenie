@@ -28,13 +28,8 @@ const Auth = () => {
   const { signIn, signUp, signInWithOAuth, user } = useAuth();
   const navigate = useNavigate();
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
-    setIsLoading(true);
-    const { error } = await signInWithOAuth(provider);
-    if (error) {
-      toast.error(error.message || `Failed to sign in with ${provider}`);
-      setIsLoading(false);
-    }
+  const handleOAuth = (provider: 'google' | 'github') => {
+    signInWithOAuth(provider);
   };
 
 

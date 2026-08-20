@@ -1,5 +1,5 @@
 import { redis } from '../config/redis.js';
-import { supabase } from '../config/supabase.js';
+import { query } from '../config/db.js';
 
 export class CacheService {
   /**
@@ -34,19 +34,19 @@ export class CacheService {
 
     // 2. Try PostgreSQL cache table as fallback
     try {
-      const { data: cached } = await supabase
-        .from('roadmap_cache')
-        .select('cached_data, access_count')
-        .eq('cache_key', key)
-        .single();
+      const res = await query(
+        `SELECT cached_data, access_count FROM roadmap_cache WHERE cache_key = $1 LIMIT 1`,
+        [key]
+      );
 
-      if (cached) {
+      if (res.rows.length > 0) {
+        const cached = res.rows[0];
+
         // Increment PG access count asynchronously
-        supabase
-          .from('roadmap_cache')
-          .update({ access_count: (cached.access_count || 0) + 1 })
-          .eq('cache_key', key)
-          .then();
+        query(
+          `UPDATE roadmap_cache SET access_count = COALESCE(access_count, 0) + 1 WHERE cache_key = $1`,
+          [key]
+        ).catch(() => {});
 
         // Repopulate Redis in background
         if (redis) {
@@ -77,25 +77,22 @@ export class CacheService {
 
     // 2. Write to PostgreSQL Cache Table
     try {
-      await supabase
-        .from('roadmap_cache')
-        .insert({
-          skill_name: skill,
-          level,
-          time_commitment: timeCommitment.toString(),
-          cache_key: key,
-          cached_data: data
-        });
+      await query(
+        `INSERT INTO roadmap_cache (skill_name, level, time_commitment, cache_key, cached_data)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (cache_key) DO UPDATE SET cached_data = $5`,
+        [skill, level, timeCommitment.toString(), key, JSON.stringify(data)]
+      );
     } catch (err) {
-      // Ignore database caching failure (might already exist)
+      // Ignore database caching failure
     }
   }
 
   /**
    * Fetches cached YouTube search video payload
    */
-  static async getYouTubeVideo(query, skill) {
-    const key = `youtube:${query.toLowerCase()}:${skill.toLowerCase()}`;
+  static async getYouTubeVideo(searchQuery, skill) {
+    const key = `youtube:${searchQuery.toLowerCase()}:${skill.toLowerCase()}`;
 
     if (redis) {
       try {
@@ -109,21 +106,18 @@ export class CacheService {
     }
 
     try {
-      const { data: cached } = await supabase
-        .from('youtube_cache')
-        .select('video_data, access_count')
-        .eq('search_query', query.toLowerCase())
-        .eq('skill_name', skill.toLowerCase())
-        .single();
+      const res = await query(
+        `SELECT video_data, access_count FROM youtube_cache WHERE search_query = $1 AND skill_name = $2 LIMIT 1`,
+        [searchQuery.toLowerCase(), skill.toLowerCase()]
+      );
 
-      if (cached) {
-        // Increment PG access count in the background
-        supabase
-          .from('youtube_cache')
-          .update({ access_count: (cached.access_count || 0) + 1 })
-          .eq('search_query', query.toLowerCase())
-          .eq('skill_name', skill.toLowerCase())
-          .then();
+      if (res.rows.length > 0) {
+        const cached = res.rows[0];
+
+        query(
+          `UPDATE youtube_cache SET access_count = COALESCE(access_count, 0) + 1 WHERE search_query = $1 AND skill_name = $2`,
+          [searchQuery.toLowerCase(), skill.toLowerCase()]
+        ).catch(() => {});
 
         if (redis) {
           redis.set(key, cached.video_data, { ex: 2592000 }).catch(() => {});
@@ -141,8 +135,8 @@ export class CacheService {
   /**
    * Caches YouTube search video results (30 days TTL)
    */
-  static async setYouTubeVideo(query, skill, videoData) {
-    const key = `youtube:${query.toLowerCase()}:${skill.toLowerCase()}`;
+  static async setYouTubeVideo(searchQuery, skill, videoData) {
+    const key = `youtube:${searchQuery.toLowerCase()}:${skill.toLowerCase()}`;
 
     if (redis) {
       try {
@@ -153,13 +147,12 @@ export class CacheService {
     }
 
     try {
-      await supabase
-        .from('youtube_cache')
-        .insert({
-          search_query: query.toLowerCase(),
-          skill_name: skill.toLowerCase(),
-          video_data: videoData
-        });
+      await query(
+        `INSERT INTO youtube_cache (search_query, skill_name, video_data)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (search_query, skill_name) DO UPDATE SET video_data = $3`,
+        [searchQuery.toLowerCase(), skill.toLowerCase(), JSON.stringify(videoData)]
+      );
     } catch (err) {
       // Ignore database insert failure
     }

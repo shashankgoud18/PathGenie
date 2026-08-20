@@ -68,18 +68,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setIsLoading(false);
   };
 
-  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
-    setIsLoading(true);
-    const { error } = await signInWithOAuth(provider);
-    
-    if (error) {
-      toast({
-        title: "Error signing in",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-    setIsLoading(false);
+  const handleOAuthSignIn = (provider: 'google' | 'github') => {
+    signInWithOAuth(provider);
   };
 
   return (

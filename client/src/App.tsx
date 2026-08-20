@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Roadmaps from "./pages/Roadmaps";
 import Generate from "./pages/Generate";
 import RoadmapView from "./pages/RoadmapView";
@@ -16,6 +17,7 @@ import TermsOfService from "./pages/TermsOfService";
 import Contact from "./pages/Contact";
 import About from "./pages/About";
 import Help from "./pages/Help";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import "./App.css";
 
@@ -100,11 +102,13 @@ function App() {
           <BrowserRouter>            <Routes>
               <Route path="/" element={<ErrorBoundary><Index /></ErrorBoundary>} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/roadmaps" element={<Roadmaps />} />
               <Route path="/generate" element={<Generate />} />
               <Route path="/roadmap/:id" element={<RoadmapView />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/community" element={<Community />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />              <Route path="/contact" element={<Contact />} />
               <Route path="/about" element={<About />} />

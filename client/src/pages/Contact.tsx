@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MessageCircle, Mail, Clock, Send, Check } from 'lucide-react';
@@ -7,9 +7,21 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import CursorGlow from '@/components/layout/CursorGlow';
+import { toast } from 'sonner';
+
+const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
 
 const Contact = () => {
   const navigate = useNavigate();
+  const [formState, setFormState] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    subject: '',
+    message: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleAuthClick = () => {
     navigate('/auth');
@@ -19,9 +31,30 @@ const Contact = () => {
     navigate(`/#${sectionId}`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    setFormState((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Thank you for your message! We\'ll get back to you soon.');
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${EXPRESS_SERVER_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formState),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Submission failed');
+      setSubmitted(true);
+      toast.success('Message sent! We\'ll get back to you within 24 hours.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -71,6 +104,25 @@ const Contact = () => {
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-5">
+                {submitted ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
+                    <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                      <Check className="w-6 h-6 text-green-400" />
+                    </div>
+                    <h3 className="text-white font-bold text-base font-display">Message Sent!</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed max-w-xs">
+                      Thanks for reaching out. We'll reply to <strong className="text-white">{formState.email}</strong> within 24 hours.
+                    </p>
+                    <Button
+                      onClick={() => { setSubmitted(false); setFormState({ firstName: '', lastName: '', email: '', subject: '', message: '' }); }}
+                      variant="ghost"
+                      className="border border-white/[0.08] text-white hover:bg-white/5 rounded-lg text-xs mt-2"
+                    >
+                      Send another message
+                    </Button>
+                  </div>
+                ) : (
+                  <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-mono font-semibold text-slate-400 mb-2">
@@ -78,6 +130,9 @@ const Contact = () => {
                     </label>
                     <input
                       type="text"
+                      name="firstName"
+                      value={formState.firstName}
+                      onChange={handleChange}
                       required
                       className="w-full px-4 py-2.5 rounded-lg bg-white/[0.01] border border-white/[0.06] text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm transition-all"
                       placeholder="John"
@@ -89,7 +144,9 @@ const Contact = () => {
                     </label>
                     <input
                       type="text"
-                      required
+                      name="lastName"
+                      value={formState.lastName}
+                      onChange={handleChange}
                       className="w-full px-4 py-2.5 rounded-lg bg-white/[0.01] border border-white/[0.06] text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm transition-all"
                       placeholder="Doe"
                     />
@@ -102,6 +159,9 @@ const Contact = () => {
                   </label>
                   <input
                     type="email"
+                    name="email"
+                    value={formState.email}
+                    onChange={handleChange}
                     required
                     className="w-full px-4 py-2.5 rounded-lg bg-white/[0.01] border border-white/[0.06] text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm transition-all"
                     placeholder="john@example.com"
@@ -112,14 +172,19 @@ const Contact = () => {
                   <label className="block text-xs font-mono font-semibold text-slate-400 mb-2">
                     Subject
                   </label>
-                  <select className="w-full px-4 py-2.5 rounded-lg bg-[#0B0B0F] border border-white/[0.06] text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm transition-all">
+                  <select
+                    name="subject"
+                    value={formState.subject}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-lg bg-[#0B0B0F] border border-white/[0.06] text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm transition-all"
+                  >
                     <option value="" className="bg-[#0B0B0F]">Select a topic</option>
-                    <option value="support" className="bg-[#0B0B0F]">Technical Support</option>
-                    <option value="billing" className="bg-[#0B0B0F]">Billing & Payments</option>
-                    <option value="feature" className="bg-[#0B0B0F]">Feature Request</option>
-                    <option value="partnership" className="bg-[#0B0B0F]">Partnership</option>
-                    <option value="feedback" className="bg-[#0B0B0F]">General Feedback</option>
-                    <option value="other" className="bg-[#0B0B0F]">Other</option>
+                    <option value="Technical Support" className="bg-[#0B0B0F]">Technical Support</option>
+                    <option value="Billing & Payments" className="bg-[#0B0B0F]">Billing &amp; Payments</option>
+                    <option value="Feature Request" className="bg-[#0B0B0F]">Feature Request</option>
+                    <option value="Partnership" className="bg-[#0B0B0F]">Partnership</option>
+                    <option value="General Feedback" className="bg-[#0B0B0F]">General Feedback</option>
+                    <option value="Other" className="bg-[#0B0B0F]">Other</option>
                   </select>
                 </div>
                 
@@ -128,6 +193,9 @@ const Contact = () => {
                     Message
                   </label>
                   <textarea
+                    name="message"
+                    value={formState.message}
+                    onChange={handleChange}
                     required
                     rows={5}
                     className="w-full px-4 py-2.5 rounded-lg bg-white/[0.01] border border-white/[0.06] text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm transition-all resize-none"
@@ -137,10 +205,13 @@ const Contact = () => {
                 
                 <Button
                   type="submit"
+                  disabled={submitting}
                   className="w-full bg-white hover:bg-slate-200 text-black py-2.5 rounded-lg text-sm font-semibold transition-all hover:scale-[1.01]"
                 >
-                  Send Message
+                  {submitting ? 'Sending…' : 'Send Message'}
                 </Button>
+                  </>
+                )}
               </form>
             </div>
 

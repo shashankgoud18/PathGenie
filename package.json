@@ -10,7 +10,9 @@
     "install:all": "npm install && npm install --prefix client && npm install --prefix server",
     "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
     "build:client": "npm run build --prefix client",
-    "start:server": "npm start --prefix server"
+    "start:server": "npm start --prefix server",
+    "smoke:test": "npm run build --prefix client && node --check server/src/server.js",
+    "ci:check": "npm run smoke:test"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

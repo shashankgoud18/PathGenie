@@ -1,23 +1,41 @@
-import { supabase } from '../config/supabase.js';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required in environment variables');
+}
+
+const getTokenFromCookie = (cookieHeader) => {
+  if (!cookieHeader) return null;
+
+  const cookie = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('auth_token='));
+
+  if (!cookie) return null;
+  return decodeURIComponent(cookie.split('=')[1]);
+};
 
 export const requireAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const cookieToken = getTokenFromCookie(req.headers.cookie);
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : cookieToken;
+
+    if (!token) {
       return res.status(401).json({ error: 'Missing or malformed authorization header' });
     }
 
-    const token = authHeader.split(' ')[1];
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired authentication token' });
-    }
-
-    req.user = user;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
     next();
   } catch (err) {
     console.error('Authentication middleware error:', err);
-    res.status(500).json({ error: 'Internal server error during authentication' });
+    return res.status(401).json({ error: 'Invalid or expired authentication token' });
   }
 };
+

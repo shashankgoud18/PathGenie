@@ -9,6 +9,7 @@ import {
   Crown,
   Menu,
   Users,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -227,6 +228,13 @@ const Navbar: React.FC<NavbarProps> = ({ onAuthClick, onScrollToSection }) => {
                       <CreditCard className="w-3.5 h-3.5 mr-2 text-slate-500" />
                       {isProUser ? "Manage Subscription" : "Upgrade to Pro"}
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => navigate("/profile")}
+                      className="text-slate-300 focus:text-white focus:bg-white/[0.04] cursor-pointer rounded px-2 py-1.5 transition-all duration-150"
+                    >
+                      <Settings className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                      Profile Settings
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-white/[0.04] my-1" />
                     <DropdownMenuItem
                       onClick={handleSignOut}
@@ -362,6 +370,14 @@ const Navbar: React.FC<NavbarProps> = ({ onAuthClick, onScrollToSection }) => {
                             Upgrade to Pro
                           </Button>
                         )}
+                        <Button
+                          onClick={() => navigate("/profile")}
+                          variant="ghost"
+                          className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/[0.04] rounded-lg py-2 transition-all duration-300"
+                        >
+                          <Settings className="w-4 h-4 mr-3" />
+                          Profile Settings
+                        </Button>
                         <Button
                           onClick={handleSignOut}
                           variant="ghost"

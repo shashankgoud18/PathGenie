@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Zap, Target, Clock, TrendingUp, Search, List, LayoutGrid, Trash2, Play, Plus, Calendar, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -14,8 +13,10 @@ import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import CursorGlow from '@/components/layout/CursorGlow';
 
+const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
+
 const Roadmaps = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,20 +31,23 @@ const Roadmaps = () => {
     }
 
     fetchRoadmaps();
-  }, [user]);
+  }, [user, token]);
 
   const fetchRoadmaps = async () => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('roadmaps')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap`, {
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        }
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        throw new Error('Failed to load roadmaps');
+      }
 
-      setRoadmaps(data || []);
+      const data = await res.json();
+      setRoadmaps(data.roadmaps || []);
     } catch (error) {
       console.error('Error fetching roadmaps:', error);
       setError('Failed to load roadmaps. Please try again.');
@@ -73,13 +77,17 @@ const Roadmaps = () => {
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this learning path? This action cannot be undone.')) {
       try {
-        const { error } = await supabase
-          .from('roadmaps')
-          .delete()
-          .eq('id', id);
+        const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token || ''}`
+          }
+        });
 
-        if (error) throw error;
-        
+        if (!res.ok) {
+          throw new Error('Failed to delete learning path');
+        }
+
         toast.success('Learning path deleted successfully');
         setRoadmaps(roadmaps.filter(r => r.id !== id));
         localStorage.removeItem(`pathgenie-roadmap-progress-${id}`);

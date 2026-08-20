@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, Clock, Target, TrendingUp, Eye, EyeOff, Sparkles, ChevronRight, Compass } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,10 +14,12 @@ import { Badge } from '@/components/ui/badge';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import CursorGlow from '@/components/layout/CursorGlow';
 
+const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
+
 const RoadmapView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [roadmap, setRoadmap] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,19 +33,22 @@ const RoadmapView = () => {
     if (id) {
       fetchRoadmap();
     }
-  }, [id, user, navigate]);
+  }, [id, user, token, navigate]);
 
   const fetchRoadmap = async () => {
     try {
-      const { data, error } = await supabase
-        .from('roadmaps')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const res = await fetch(`${EXPRESS_SERVER_URL}/api/roadmap/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        }
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        throw new Error('Failed to fetch roadmap');
+      }
 
-      setRoadmap(data);
+      const data = await res.json();
+      setRoadmap(data.roadmap);
     } catch (error) {
       console.error('Error fetching roadmap:', error);
       toast.error('Failed to load roadmap');

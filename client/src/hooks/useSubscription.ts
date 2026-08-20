@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+
+const EXPRESS_SERVER_URL = import.meta.env.VITE_EXPRESS_SERVER_URL || 'http://localhost:5000';
 
 interface SubscriptionData {
   tier: string;
@@ -16,26 +16,23 @@ interface UsageData {
 
 export const useSubscription = () => {
   const [subscription, setSubscription] = useState<SubscriptionData>(() => {
-    // Initialize from localStorage if available
     const cached = localStorage.getItem('subscription_status');
     return cached ? JSON.parse(cached) : { tier: 'free', subscribed: false };
   });
   const [usage, setUsage] = useState<UsageData>({ gemini: 0, youtube: 0 });
   const [loading, setLoading] = useState(() => {
-    // If we have cached data, start with loading false
     const cached = localStorage.getItem('subscription_status');
     return !cached;
   });
   const [lastFetch, setLastFetch] = useState<number>(0);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
-  const fetchSubscription = async () => {
-    if (!user) {
+  const fetchSubscriptionAndUsage = async () => {
+    if (!user || !token) {
       setLoading(false);
       return;
     }
 
-    // Prevent excessive API calls - only fetch once per minute
     const now = Date.now();
     if (now - lastFetch < 60000 && lastFetch > 0) {
       setLoading(false);
@@ -43,85 +40,42 @@ export const useSubscription = () => {
     }
 
     try {
-      const { data: subscriber } = await supabase
-        .from('subscribers')
-        .select('subscribed, subscription_tier, subscription_end')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const res = await fetch(`${EXPRESS_SERVER_URL}/api/subscription/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      if (subscriber) {
-        const isActive = subscriber.subscribed && 
-          (!subscriber.subscription_end || new Date(subscriber.subscription_end) > new Date());
-        
-        const newSubscription = {
-          tier: isActive ? subscriber.subscription_tier : 'free',
-          subscribed: isActive,
-          subscription_end: subscriber.subscription_end
-        };
-        
-        setSubscription(newSubscription);
-        // Cache the subscription status
-        localStorage.setItem('subscription_status', JSON.stringify(newSubscription));
-      } else {
-        const freeSubscription = {
-          tier: 'free',
-          subscribed: false
-        };
-        setSubscription(freeSubscription);
-        localStorage.setItem('subscription_status', JSON.stringify(freeSubscription));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setSubscription(data.subscription);
+          setUsage(data.usage || { gemini: 0, youtube: 0 });
+          localStorage.setItem('subscription_status', JSON.stringify(data.subscription));
+        }
       }
-      
       setLastFetch(now);
     } catch (error) {
-      console.error('Error fetching subscription:', error);
-      // On error, don't reset - keep current state
+      console.error('Error fetching subscription status:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUsage = async () => {
-    if (!user) return;
-
-    try {
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthStart = firstDayOfMonth.toISOString().split('T')[0];
-      
-      const { data: usageData } = await supabase
-        .from('api_usage_tracking')
-        .select('api_type, request_count')
-        .eq('user_id', user.id)
-        .gte('date', monthStart);
-
-      const usageMap = { gemini: 0, youtube: 0 };
-      usageData?.forEach(item => {
-        if (item.api_type === 'gemini') usageMap.gemini += item.request_count;
-        if (item.api_type === 'youtube') usageMap.youtube += item.request_count;
-      });
-
-      setUsage(usageMap);
-    } catch (error) {
-      console.error('Error fetching usage:', error);
-    }
-  };
-
   useEffect(() => {
-    if (user) {
-      fetchSubscription();
-      fetchUsage();
+    if (user && token) {
+      fetchSubscriptionAndUsage();
     } else {
       setLoading(false);
       setSubscription({ tier: 'free', subscribed: false });
       localStorage.removeItem('subscription_status');
     }
-  }, [user]);
+  }, [user, token]);
 
   const refreshSubscription = () => {
-    if (user) {
-      setLastFetch(0); // Reset cache
-      fetchSubscription();
-      fetchUsage();
+    if (user && token) {
+      setLastFetch(0);
+      fetchSubscriptionAndUsage();
     }
   };
 
