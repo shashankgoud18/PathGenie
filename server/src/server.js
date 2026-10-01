@@ -61,24 +61,39 @@ app.use(
 );
 
 // ── CORS ──────────────────────────────────────────────────────────────────
-const allowedOrigins = [
+const rawOrigins = [
   'http://localhost:5173',
+  'http://localhost:3000',
   process.env.CLIENT_URL,
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
+
+const allowedOrigins = rawOrigins.map((url) => url.replace(/\/$/, ''));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) {
         callback(null, true);
         return;
       }
 
-      callback(new Error('CORS policy: origin not allowed'));
+      const cleanOrigin = origin.replace(/\/$/, '');
+
+      if (
+        allowedOrigins.includes(cleanOrigin) ||
+        /\.vercel\.app$/.test(cleanOrigin)
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      console.warn(`[CORS Blocked] Origin not explicitly allowed: ${origin}`);
+      callback(null, false);
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     credentials: true,
   })
 );
