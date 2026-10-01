@@ -164,7 +164,7 @@ export const googleCallback = (req, res) => {
   try {
     const token = signToken(req.user);
     setAuthCookie(res, token);
-    return res.redirect(`${CLIENT_URL}/auth/callback`);
+    return res.redirect(`${CLIENT_URL}/auth/callback?token=${token}`);
   } catch {
     return res.redirect(`${CLIENT_URL}/auth?error=token_failed`);
   }
@@ -174,7 +174,7 @@ export const githubCallback = (req, res) => {
   try {
     const token = signToken(req.user);
     setAuthCookie(res, token);
-    return res.redirect(`${CLIENT_URL}/auth/callback`);
+    return res.redirect(`${CLIENT_URL}/auth/callback?token=${token}`);
   } catch {
     return res.redirect(`${CLIENT_URL}/auth?error=token_failed`);
   }

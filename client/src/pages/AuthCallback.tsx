@@ -18,7 +18,9 @@ const AuthCallback = () => {
     if (handled.current) return;
     handled.current = true;
 
-    const error = new URLSearchParams(window.location.search).get('error');
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const tokenFromUrl = urlParams.get('token');
 
     if (error) {
       window.history.replaceState({}, '', window.location.pathname);
@@ -27,23 +29,22 @@ const AuthCallback = () => {
       return;
     }
 
+    if (tokenFromUrl) {
+      sessionStorage.setItem('auth_token', tokenFromUrl);
+      localStorage.setItem('auth_token', tokenFromUrl);
+    }
+
     window.history.replaceState({}, '', window.location.pathname);
+
+    const effectiveToken = tokenFromUrl || sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
 
     fetch(`${EXPRESS_SERVER_URL}/api/auth/me`, {
       credentials: 'include',
+      headers: effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {},
     })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          const cookieToken = document.cookie
-            .split('; ')
-            .find((row) => row.startsWith('auth_token='));
-
-          if (cookieToken) {
-            const token = decodeURIComponent(cookieToken.split('=')[1]);
-            sessionStorage.setItem('auth_token', token);
-          }
-
           refreshUser().finally(() => {
             toast.success(`Welcome, ${data.user.full_name || data.user.email}!`);
             navigate('/', { replace: true });
